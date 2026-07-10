@@ -4,7 +4,7 @@ import json
 import os
 
 # --- DETAILS ---
-BOT_TOKEN = "APNA_BOT_TOKEN_YAHAN_DAALO"
+BOT_TOKEN = "8772389822:AAGEoR5Uh17IYRJ29AsQoH6SSfOnC8aSbeI"
 ADMIN_ID = 5785924075
 CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
 WELCOME_CAPTION = "Welcome Dear ☺️ 🎉\n\nNiche diye button pe click karke abhi hamare channel ko join kijiye ✅"
