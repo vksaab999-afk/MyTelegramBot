@@ -89,4 +89,7 @@ def broadcast(message):
         except: pass
     bot.reply_to(message, "✅ Broadcast complete!")
 
-bot.infinity_polling()
+# Niche wala part replace kar do
+if __name__ == '__main__':
+    keep_alive() # Jo humne pehle banaya tha
+    bot.infinity_polling()
