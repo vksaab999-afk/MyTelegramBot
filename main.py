@@ -6,7 +6,6 @@ from threading import Thread
 from telebot import types
 
 # --- CONFIGURATION ---
-# TOKEN ko Render Environment Variable se uthayega
 BOT_TOKEN = os.environ.get("BOT_TOKEN") 
 ADMIN_ID = 5785924075
 CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
@@ -16,13 +15,11 @@ USERS_FILE = "users.json"
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-# --- WEB SERVER (Keep Alive) ---
 @app.route('/')
 def home():
     return "Bot is running!"
 
 def run():
-    # Render ke liye port management
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
 
@@ -31,7 +28,7 @@ def keep_alive():
     t.daemon = True
     t.start()
 
-# --- USER DATA MANAGEMENT ---
+# --- USER DATA ---
 def load_users():
     if not os.path.exists(USERS_FILE): return []
     try:
@@ -68,14 +65,19 @@ def stats(message):
 @bot.message_handler(commands=['list'])
 def list_users(message):
     if message.from_user.id == ADMIN_ID:
-        msg = "User List (ID):\n"
+        msg = "User List (ID | Username):\n"
         for uid in users:
-            msg += f"{uid}\n"
+            try:
+                chat = bot.get_chat(uid)
+                username = f"@{chat.username}" if chat.username else "No Username"
+                msg += f"{uid} | {username}\n"
+            except:
+                msg += f"{uid} | Private\n"
         bot.reply_to(message, msg if len(msg) < 4000 else "List bahut badi hai.")
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def broadcast(message):
-    if message.from_user.id == ADMIN_ID and message.text != '/start' and message.text != '/stats' and message.text != '/list':
+    if message.from_user.id == ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
         for uid in users:
             try:
                 if message.content_type == 'photo': bot.send_photo(uid, message.photo[-1].file_id, caption=message.caption)
@@ -85,7 +87,6 @@ def broadcast(message):
             except: pass
         bot.reply_to(message, "✅ Broadcast complete!")
 
-# --- START BOT ---
 if __name__ == '__main__':
     keep_alive()
     bot.infinity_polling(none_stop=True)
