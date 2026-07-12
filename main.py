@@ -14,29 +14,29 @@ client = MongoClient(MONGO_URI)
 db = client['tg_bot_database']
 users_col = db['users']
 
-# Keep Alive
+# Flask Server
 app = Flask(__name__)
 @app.route('/')
 def home(): return "Bot is Alive!"
 def keep_alive(): app.run(host='0.0.0.0', port=8080)
 
-# Start
+# Start Command (Yahan apna message aur link daal do)
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
     uname = message.from_user.username or "No_Username"
     if not users_col.find_one({'uid': uid}):
         users_col.insert_one({'uid': uid, 'username': uname})
-    bot.reply_to(message, "Welcome! Aap hamare database mein register ho gaye hain.")
+    # Apna Welcome Message aur Link yahan edit kar lo
+    bot.reply_to(message, "Welcome! Aap hamare database mein register ho gaye hain.\n\n[Channel Link Yahan Daalo]")
 
-# Stats
+# Admin Commands
 @bot.message_handler(commands=['stats'])
 def stats(message):
     if message.from_user.id == ADMIN_ID:
         count = users_col.count_documents({})
         bot.reply_to(message, f"📊 Total users: {count}")
 
-# List
 @bot.message_handler(commands=['list'])
 def list_users(message):
     if message.from_user.id == ADMIN_ID:
@@ -46,24 +46,23 @@ def list_users(message):
             msg += f"@{user.get('username', 'N/A')} | {user['uid']}\n"
         bot.reply_to(message, msg if len(msg) < 4000 else "List bahut badi hai.")
 
-# Admin Reply & User Forwarding Logic
+# Broadcast, Forwarding & Reply Logic
 @bot.message_handler(func=lambda message: True, content_types=['photo', 'video', 'document', 'text', 'audio'])
-def handle_all_messages(message):
-    # 1. Agar Admin kisi forward kiye huye message par Reply kar raha hai
+def handle_messages(message):
+    # 1. Admin Reply Logic
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
-        # Forwarded message se user ka original ID nikalna
         if message.reply_to_message.forward_from:
             target_id = message.reply_to_message.forward_from.id
             bot.copy_message(target_id, message.chat.id, message.message_id)
             bot.reply_to(message, "✅ Message user ko bhej diya gaya hai!")
             return
 
-    # 2. Agar User Admin ko message bhej raha hai
+    # 2. User to Admin Forwarding
     if message.from_user.id != ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
         return
 
-    # 3. Broadcast Logic (Admin ke liye)
+    # 3. Broadcast Logic
     if message.from_user.id == ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
         all_users = list(users_col.find())
         caption = message.caption or ""
