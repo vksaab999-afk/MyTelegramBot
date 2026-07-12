@@ -24,56 +24,45 @@ def keep_alive(): app.run(host='0.0.0.0', port=8080)
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
-    uname = message.from_user.username or "No_Username"
     if not users_col.find_one({'uid': uid}):
-        users_col.insert_one({'uid': uid, 'username': uname})
+        users_col.insert_one({'uid': uid})
     
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("✅ JOIN CHANNEL", url=CHANNEL_LINK))
     
-    caption_text = "🎉 *Welcome!*\n\n👇 Niche diye gaye button par click karke hamara channel join karein."
-    bot.send_photo(message.chat.id, "https://telegra.ph/file/8b38382d5563914945d8b.jpg", caption=caption_text, reply_markup=markup, parse_mode='Markdown')
+    # Simple message for testing start
+    bot.send_photo(message.chat.id, "https://telegra.ph/file/8b38382d5563914945d8b.jpg", 
+                   caption="🎉 Welcome!\n\n👇 Niche diye gaye button par click karke hamara channel join karein.", 
+                   reply_markup=markup)
 
-@bot.message_handler(commands=['stats'])
-def stats(message):
+@bot.message_handler(content_types=['photo', 'video', 'document', 'audio', 'text'])
+def handle_messages(message):
+    # Broadcast Logic (Admin)
     if message.from_user.id == ADMIN_ID:
-        count = users_col.count_documents({})
-        bot.reply_to(message, f"📊 Total users: {count}")
-
-@bot.message_handler(commands=['list'])
-def list_users(message):
-    if message.from_user.id == ADMIN_ID:
-        all_users = list(users_col.find())
-        msg = "User List (Username | ID):\n"
-        for user in all_users:
-            msg += f"@{user.get('username', 'N/A')} | {user['uid']}\n"
-        bot.reply_to(message, msg if len(msg) < 4000 else "List bahut badi hai.")
-
-@bot.message_handler(func=lambda message: True, content_types=['photo', 'video', 'document', 'text', 'audio'])
-def handle_all(message):
-    if message.from_user.id == ADMIN_ID and message.reply_to_message:
-        if message.reply_to_message.forward_from:
-            target_id = message.reply_to_message.forward_from.id
-            bot.copy_message(target_id, message.chat.id, message.message_id)
-            bot.reply_to(message, "✅ Message user ko bhej diya gaya hai!")
+        if message.text in ['/stats', '/list']:
+            if message.text == '/stats':
+                count = users_col.count_documents({})
+                bot.reply_to(message, f"📊 Total users: {count}")
+            elif message.text == '/list':
+                all_users = list(users_col.find())
+                bot.reply_to(message, f"Total Users: {len(all_users)}")
             return
 
-    if message.from_user.id != ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
-        bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
-        return
-
-    if message.from_user.id == ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
+        # Broadcast
         all_users = list(users_col.find())
-        caption = message.caption or ""
         for user in all_users:
             try:
-                if message.content_type == 'photo': bot.send_photo(user['uid'], message.photo[-1].file_id, caption=caption, parse_mode='Markdown')
-                elif message.content_type == 'video': bot.send_video(user['uid'], message.video.file_id, caption=caption, parse_mode='Markdown')
-                elif message.content_type == 'audio': bot.send_audio(user['uid'], message.audio.file_id, caption=caption, parse_mode='Markdown')
-                elif message.content_type == 'document': bot.send_document(user['uid'], message.document.file_id, caption=caption, parse_mode='Markdown')
-                else: bot.send_message(user['uid'], message.text, parse_mode='Markdown')
+                if message.content_type == 'photo': bot.send_photo(user['uid'], message.photo[-1].file_id, caption=message.caption)
+                elif message.content_type == 'video': bot.send_video(user['uid'], message.video.file_id, caption=message.caption)
+                elif message.content_type == 'audio': bot.send_audio(user['uid'], message.audio.file_id, caption=message.caption)
+                elif message.content_type == 'document': bot.send_document(user['uid'], message.document.file_id, caption=message.caption)
+                else: bot.send_message(user['uid'], message.text)
             except: pass
         bot.reply_to(message, "✅ Broadcast complete!")
+    
+    # Forwarding (User)
+    elif message.from_user.id != ADMIN_ID:
+        bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
 
 if __name__ == '__main__':
     Thread(target=keep_alive).start()
