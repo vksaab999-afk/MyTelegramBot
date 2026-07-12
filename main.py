@@ -21,23 +21,21 @@ app = Flask(__name__)
 def home(): return "Bot is Alive!"
 def keep_alive(): app.run(host='0.0.0.0', port=8080)
 
-# Start Command
+# 1. Start Command Handler (Bilkul alag)
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
-    uname = message.from_user.username or "No_Username"
     if not users_col.find_one({'uid': uid}):
-        users_col.insert_one({'uid': uid, 'username': uname})
+        users_col.insert_one({'uid': uid, 'username': message.from_user.username or "N/A"})
     
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("✅ JOIN CHANNEL", url=CHANNEL_LINK))
     
-    # Poster Image
     bot.send_photo(message.chat.id, "https://telegra.ph/file/8b38382d5563914945d8b.jpg", 
                    caption="🎉 *Welcome!*\n\n👇 Niche diye gaye button par click karke hamara channel join karein.", 
                    reply_markup=markup, parse_mode='Markdown')
 
-# Admin Commands
+# 2. Admin Commands Handler
 @bot.message_handler(commands=['stats', 'list'])
 def admin_cmds(message):
     if message.from_user.id == ADMIN_ID:
@@ -46,36 +44,33 @@ def admin_cmds(message):
             bot.reply_to(message, f"📊 Total users: {count}")
         elif message.text == '/list':
             all_users = list(users_col.find())
-            msg = "User List (Username | ID):\n" + "\n".join([f"@{u.get('username','N/A')} | {u['uid']}" for u in all_users])
+            msg = "User List:\n" + "\n".join([f"@{u.get('username','N/A')}" for u in all_users])
             bot.reply_to(message, msg if len(msg) < 4000 else "List bahut badi hai.")
 
-# Main Handler (Broadcast & Forwarding)
+# 3. Media & Forward Handler
 @bot.message_handler(content_types=['photo', 'video', 'document', 'audio', 'text'])
 def handler(message):
-    # 1. Admin Reply Logic (Reply to forward)
+    # Admin Reply
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         if message.reply_to_message.forward_from:
             bot.copy_message(message.reply_to_message.forward_from.id, message.chat.id, message.message_id)
-            bot.reply_to(message, "✅ Sended!")
             return
 
-    # 2. Broadcast Logic (Only if message is not a command)
-    if message.from_user.id == ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
-        all_users = users_col.find()
-        for u in all_users:
+    # Broadcast (Admin)
+    if message.from_user.id == ADMIN_ID:
+        users = users_col.find()
+        for u in users:
             try:
-                # Markdown use kiya hai taaki *bold* kaam kare
                 if message.content_type == 'photo': bot.send_photo(u['uid'], message.photo[-1].file_id, caption=message.caption, parse_mode='Markdown')
                 elif message.content_type == 'video': bot.send_video(u['uid'], message.video.file_id, caption=message.caption, parse_mode='Markdown')
                 elif message.content_type == 'audio': bot.send_audio(u['uid'], message.audio.file_id, caption=message.caption, parse_mode='Markdown')
                 elif message.content_type == 'document': bot.send_document(u['uid'], message.document.file_id, caption=message.caption, parse_mode='Markdown')
                 else: bot.send_message(u['uid'], message.text, parse_mode='Markdown')
-            except: pass
+            except: continue
         bot.reply_to(message, "✅ Broadcast Done!")
-        return
-
-    # 3. User Forwarding (If not Admin)
-    if message.from_user.id != ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
+    
+    # Forwarding (User)
+    elif message.from_user.id != ADMIN_ID:
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
 
 if __name__ == '__main__':
