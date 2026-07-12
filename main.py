@@ -17,19 +17,22 @@ client = MongoClient(MONGO_URI)
 db = client['tg_bot_database']
 users_col = db['users']
 
-# Keep Alive
+# Force clear webhook to resolve conflicts
+try:
+    bot.remove_webhook()
+except: pass
+
 app = Flask(__name__)
 @app.route('/')
 def home(): return "Bot is Alive!"
 def keep_alive(): app.run(host='0.0.0.0', port=8080)
 
-# 1. START COMMAND
+# START HANDLER - Sabse upar rakha hai
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
-    uname = message.from_user.username or "N/A"
     if not users_col.find_one({'uid': uid}):
-        users_col.insert_one({'uid': uid, 'username': uname})
+        users_col.insert_one({'uid': uid, 'username': message.from_user.username or "N/A"})
     
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("✅ JOIN CHANNEL", url=CHANNEL_LINK))
@@ -37,7 +40,7 @@ def start(message):
     caption = "🎉 *Welcome!*\n\n👇 Niche diye gaye button par click karke hamara channel join karein."
     bot.send_photo(message.chat.id, WELCOME_PHOTO, caption=caption, reply_markup=markup, parse_mode='Markdown')
 
-# 2. ADMIN COMMANDS
+# ADMIN COMMANDS
 @bot.message_handler(commands=['stats', 'list'])
 def admin_commands(message):
     if message.from_user.id != ADMIN_ID: return
@@ -46,19 +49,17 @@ def admin_commands(message):
         bot.reply_to(message, f"📊 Total Users: {count}")
     elif message.text == '/list':
         all_users = list(users_col.find())
-        msg = "User List (Username | ID):\n" + "\n".join([f"@{u.get('username','N/A')} | {u['uid']}" for u in all_users])
-        bot.reply_to(message, msg if len(msg) < 4000 else "List bahut badi hai.")
+        msg = "User List:\n" + "\n".join([f"@{u.get('username','N/A')} | {u['uid']}" for u in all_users])
+        bot.reply_to(message, msg if len(msg) < 4000 else "List badi hai.")
 
-# 3. MESSAGE HANDLER (No Audio)
+# MEDIA/FORWARDING HANDLER
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def handler(message):
-    # ADMIN REPLY
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         if message.reply_to_message.forward_from:
             bot.copy_message(message.reply_to_message.forward_from.id, message.chat.id, message.message_id)
             return
 
-    # BROADCAST
     if message.from_user.id == ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
         users = users_col.find()
         for u in users:
@@ -72,7 +73,6 @@ def handler(message):
         bot.reply_to(message, "✅ Broadcast Done!")
         return
 
-    # USER FORWARDING
     if message.from_user.id != ADMIN_ID:
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
 
