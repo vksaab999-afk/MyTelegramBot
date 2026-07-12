@@ -10,14 +10,15 @@ BOT_TOKEN = os.environ.get('BOT_TOKEN')
 MONGO_URI = os.environ.get('MONGO_URI')
 ADMIN_ID = 5785924075 
 CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
-WELCOME_PHOTO = "https://telegra.ph/file/8b38382d5563914945d8b.jpg"
+# Fixed Image Link
+WELCOME_PHOTO = "https://i.ibb.co/L5kL2k9/welcome.jpg"
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
 client = MongoClient(MONGO_URI)
 db = client['tg_bot_database']
 users_col = db['users']
 
-# Force clear any existing webhook/connection
+# Force clear webhook
 bot.remove_webhook()
 
 # Keep Alive
@@ -26,7 +27,7 @@ app = Flask(__name__)
 def home(): return "Bot is Alive!"
 def keep_alive(): app.run(host='0.0.0.0', port=8080)
 
-# START COMMAND - Sabse important
+# START COMMAND
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
@@ -37,7 +38,10 @@ def start(message):
     markup.add(types.InlineKeyboardButton("✅ JOIN CHANNEL", url=CHANNEL_LINK))
     
     caption = "🎉 *Welcome!*\n\n👇 Niche diye gaye button par click karke hamara channel join karein."
-    bot.send_photo(message.chat.id, WELCOME_PHOTO, caption=caption, reply_markup=markup, parse_mode='Markdown')
+    try:
+        bot.send_photo(message.chat.id, WELCOME_PHOTO, caption=caption, reply_markup=markup, parse_mode='Markdown')
+    except Exception as e:
+        bot.send_message(message.chat.id, caption, reply_markup=markup, parse_mode='Markdown')
 
 # ADMIN COMMANDS
 @bot.message_handler(commands=['stats', 'list'])
@@ -51,16 +55,20 @@ def admin_commands(message):
         msg = "User List:\n" + "\n".join([f"@{u.get('username','N/A')} | {u['uid']}" for u in all_users])
         bot.reply_to(message, msg if len(msg) < 4000 else "List badi hai.")
 
-# BROADCAST & FORWARDING
+# MEDIA & BROADCAST
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def handle_all(message):
+    # Ignore commands here
+    if message.text and message.text.startswith('/'): return
+    
     # Admin Reply Logic
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
-        bot.copy_message(message.reply_to_message.forward_from.id, message.chat.id, message.message_id)
-        return
+        if message.reply_to_message.forward_from:
+            bot.copy_message(message.reply_to_message.forward_from.id, message.chat.id, message.message_id)
+            return
 
     # Broadcast Logic
-    if message.from_user.id == ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
+    if message.from_user.id == ADMIN_ID:
         for u in users_col.find():
             try:
                 caption = message.caption or ""
@@ -78,4 +86,4 @@ def handle_all(message):
 
 if __name__ == '__main__':
     Thread(target=keep_alive).start()
-    bot.infinity_polling(none_stop=True, interval=0)
+    bot.infinity_polling(none_stop=True)
