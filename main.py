@@ -4,13 +4,13 @@ from telebot import types
 from pymongo import MongoClient
 from flask import Flask
 from threading import Thread
+import time
 
 # Config
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 MONGO_URI = os.environ.get('MONGO_URI')
 ADMIN_ID = 5785924075 
 CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
-# Fixed Image Link
 WELCOME_PHOTO = "https://i.ibb.co/L5kL2k9/welcome.jpg"
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
@@ -18,8 +18,11 @@ client = MongoClient(MONGO_URI)
 db = client['tg_bot_database']
 users_col = db['users']
 
-# Force clear webhook
-bot.remove_webhook()
+# Conflict Fix: Forcefully clear all connections before starting
+try:
+    bot.remove_webhook()
+    time.sleep(1)
+except: pass
 
 # Keep Alive
 app = Flask(__name__)
@@ -38,9 +41,10 @@ def start(message):
     markup.add(types.InlineKeyboardButton("✅ JOIN CHANNEL", url=CHANNEL_LINK))
     
     caption = "🎉 *Welcome!*\n\n👇 Niche diye gaye button par click karke hamara channel join karein."
+    
     try:
         bot.send_photo(message.chat.id, WELCOME_PHOTO, caption=caption, reply_markup=markup, parse_mode='Markdown')
-    except Exception as e:
+    except:
         bot.send_message(message.chat.id, caption, reply_markup=markup, parse_mode='Markdown')
 
 # ADMIN COMMANDS
@@ -55,19 +59,14 @@ def admin_commands(message):
         msg = "User List:\n" + "\n".join([f"@{u.get('username','N/A')} | {u['uid']}" for u in all_users])
         bot.reply_to(message, msg if len(msg) < 4000 else "List badi hai.")
 
-# MEDIA & BROADCAST
+# BROADCAST & FORWARDING
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def handle_all(message):
-    # Ignore commands here
     if message.text and message.text.startswith('/'): return
-    
-    # Admin Reply Logic
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
-        if message.reply_to_message.forward_from:
-            bot.copy_message(message.reply_to_message.forward_from.id, message.chat.id, message.message_id)
-            return
+        bot.copy_message(message.reply_to_message.forward_from.id, message.chat.id, message.message_id)
+        return
 
-    # Broadcast Logic
     if message.from_user.id == ADMIN_ID:
         for u in users_col.find():
             try:
@@ -80,10 +79,10 @@ def handle_all(message):
         bot.reply_to(message, "✅ Broadcast Done!")
         return
 
-    # User Forwarding
     if message.from_user.id != ADMIN_ID:
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
 
 if __name__ == '__main__':
     Thread(target=keep_alive).start()
-    bot.infinity_polling(none_stop=True)
+    # Final fix for conflict
+    bot.infinity_polling(none_stop=True, skip_pending=True)
