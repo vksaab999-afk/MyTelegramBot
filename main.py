@@ -20,51 +20,62 @@ app = Flask(__name__)
 def home(): return "Bot is Alive!"
 def keep_alive(): app.run(host='0.0.0.0', port=8080)
 
-# Start Command
+# Start
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
     uname = message.from_user.username or "No_Username"
     if not users_col.find_one({'uid': uid}):
         users_col.insert_one({'uid': uid, 'username': uname})
-    # HTML formatting (<b>bold</b>)
-    bot.reply_to(message, "<b>Welcome!</b> Aap hamare database mein register ho gaye hain.", parse_mode='HTML')
+    bot.reply_to(message, "Welcome! Aap hamare database mein register ho gaye hain.")
 
-# Stats & List
-@bot.message_handler(commands=['stats', 'list'])
-def admin_commands(message):
+# Stats
+@bot.message_handler(commands=['stats'])
+def stats(message):
     if message.from_user.id == ADMIN_ID:
-        if message.text == '/stats':
-            count = users_col.count_documents({})
-            bot.reply_to(message, f"📊 <b>Total users:</b> {count}", parse_mode='HTML')
-        elif message.text == '/list':
-            all_users = list(users_col.find())
-            msg = "<b>User List (Username | ID):</b>\n\n"
-            for user in all_users:
-                msg += f"@{user.get('username', 'N/A')} | {user['uid']}\n"
-            bot.reply_to(message, msg if len(msg) < 4000 else "List bahut badi hai.", parse_mode='HTML')
+        count = users_col.count_documents({})
+        bot.reply_to(message, f"📊 Total users: {count}")
 
-# Final Broadcast (HTML Mode)
-@bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio'])
-def broadcast(message):
+# List
+@bot.message_handler(commands=['list'])
+def list_users(message):
+    if message.from_user.id == ADMIN_ID:
+        all_users = list(users_col.find())
+        msg = "User List (Username | ID):\n"
+        for user in all_users:
+            msg += f"@{user.get('username', 'N/A')} | {user['uid']}\n"
+        bot.reply_to(message, msg if len(msg) < 4000 else "List bahut badi hai.")
+
+# Admin Reply & User Forwarding Logic
+@bot.message_handler(func=lambda message: True, content_types=['photo', 'video', 'document', 'text', 'audio'])
+def handle_all_messages(message):
+    # 1. Agar Admin kisi forward kiye huye message par Reply kar raha hai
+    if message.from_user.id == ADMIN_ID and message.reply_to_message:
+        # Forwarded message se user ka original ID nikalna
+        if message.reply_to_message.forward_from:
+            target_id = message.reply_to_message.forward_from.id
+            bot.copy_message(target_id, message.chat.id, message.message_id)
+            bot.reply_to(message, "✅ Message user ko bhej diya gaya hai!")
+            return
+
+    # 2. Agar User Admin ko message bhej raha hai
+    if message.from_user.id != ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
+        bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
+        return
+
+    # 3. Broadcast Logic (Admin ke liye)
     if message.from_user.id == ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
         all_users = list(users_col.find())
         caption = message.caption or ""
-        
         for user in all_users:
             try:
-                if message.content_type == 'photo': 
-                    bot.send_photo(user['uid'], message.photo[-1].file_id, caption=caption, parse_mode='HTML')
-                elif message.content_type == 'video': 
-                    bot.send_video(user['uid'], message.video.file_id, caption=caption, parse_mode='HTML')
-                elif message.content_type == 'audio': 
-                    bot.send_audio(user['uid'], message.audio.file_id, caption=caption, parse_mode='HTML')
-                elif message.content_type == 'document': 
-                    bot.send_document(user['uid'], message.document.file_id, caption=caption, parse_mode='HTML')
-                else: 
-                    bot.send_message(user['uid'], message.text, parse_mode='HTML')
+                if message.content_type == 'photo': bot.send_photo(user['uid'], message.photo[-1].file_id, caption=caption, parse_mode='Markdown')
+                elif message.content_type == 'video': bot.send_video(user['uid'], message.video.file_id, caption=caption, parse_mode='Markdown')
+                elif message.content_type == 'audio': bot.send_audio(user['uid'], message.audio.file_id, caption=caption, parse_mode='Markdown')
+                elif message.content_type == 'document': bot.send_document(user['uid'], message.document.file_id, caption=caption, parse_mode='Markdown')
+                else: bot.send_message(user['uid'], message.text, parse_mode='Markdown')
             except: pass
-        bot.reply_to(message, "✅ <b>Broadcast complete!</b>", parse_mode='HTML')
+        bot.reply_to(message, "✅ Broadcast complete!")
 
 if __name__ == '__main__':
     Thread(target=keep_alive).start()
