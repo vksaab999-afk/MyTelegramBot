@@ -11,20 +11,21 @@ BOT_TOKEN = os.environ.get('BOT_TOKEN')
 MONGO_URI = os.environ.get('MONGO_URI')
 ADMIN_ID = 5785924075 
 CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
-WELCOME_PHOTO = "https://i.ibb.co/L5kL2k9/welcome.jpg"
+# Aapki GitHub wali poster ki direct link
+WELCOME_PHOTO = "https://raw.githubusercontent.com/vksaab999-afk/MyTelegramBot/main/poster.png"
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
 client = MongoClient(MONGO_URI)
 db = client['tg_bot_database']
 users_col = db['users']
 
-# Conflict Fix: Forcefully clear all connections before starting
+# Force clear all connections before starting
 try:
     bot.remove_webhook()
     time.sleep(1)
 except: pass
 
-# Keep Alive
+# Keep Alive (Bot ko jagaye rakhne ke liye)
 app = Flask(__name__)
 @app.route('/')
 def home(): return "Bot is Alive!"
@@ -44,7 +45,8 @@ def start(message):
     
     try:
         bot.send_photo(message.chat.id, WELCOME_PHOTO, caption=caption, reply_markup=markup, parse_mode='Markdown')
-    except:
+    except Exception as e:
+        print(f"Photo error: {e}")
         bot.send_message(message.chat.id, caption, reply_markup=markup, parse_mode='Markdown')
 
 # ADMIN COMMANDS
@@ -63,10 +65,14 @@ def admin_commands(message):
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def handle_all(message):
     if message.text and message.text.startswith('/'): return
+    
+    # Admin Reply
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
-        bot.copy_message(message.reply_to_message.forward_from.id, message.chat.id, message.message_id)
-        return
+        if message.reply_to_message.forward_from:
+            bot.copy_message(message.reply_to_message.forward_from.id, message.chat.id, message.message_id)
+            return
 
+    # Broadcast
     if message.from_user.id == ADMIN_ID:
         for u in users_col.find():
             try:
@@ -79,10 +85,11 @@ def handle_all(message):
         bot.reply_to(message, "✅ Broadcast Done!")
         return
 
+    # User Forwarding
     if message.from_user.id != ADMIN_ID:
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
 
 if __name__ == '__main__':
     Thread(target=keep_alive).start()
-    # Final fix for conflict
+    # Final robust polling
     bot.infinity_polling(none_stop=True, skip_pending=True)
