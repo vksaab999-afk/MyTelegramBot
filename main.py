@@ -12,17 +12,21 @@ ADMIN_ID = 5785924075
 CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
 WELCOME_PHOTO = "https://telegra.ph/file/8b38382d5563914945d8b.jpg"
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
 client = MongoClient(MONGO_URI)
 db = client['tg_bot_database']
 users_col = db['users']
 
+# Force clear any existing webhook/connection
+bot.remove_webhook()
+
+# Keep Alive
 app = Flask(__name__)
 @app.route('/')
 def home(): return "Bot is Alive!"
 def keep_alive(): app.run(host='0.0.0.0', port=8080)
 
-# 1. Start Handler (Priority: High)
+# START COMMAND - Sabse important
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
@@ -35,7 +39,7 @@ def start(message):
     caption = "🎉 *Welcome!*\n\n👇 Niche diye gaye button par click karke hamara channel join karein."
     bot.send_photo(message.chat.id, WELCOME_PHOTO, caption=caption, reply_markup=markup, parse_mode='Markdown')
 
-# 2. Admin Command Handler
+# ADMIN COMMANDS
 @bot.message_handler(commands=['stats', 'list'])
 def admin_commands(message):
     if message.from_user.id != ADMIN_ID: return
@@ -44,24 +48,20 @@ def admin_commands(message):
         bot.reply_to(message, f"📊 Total Users: {count}")
     elif message.text == '/list':
         all_users = list(users_col.find())
-        msg = "User List (Username | ID):\n" + "\n".join([f"@{u.get('username','N/A')} | {u['uid']}" for u in all_users])
-        bot.reply_to(message, msg if len(msg) < 4000 else "List bahut badi hai.")
+        msg = "User List:\n" + "\n".join([f"@{u.get('username','N/A')} | {u['uid']}" for u in all_users])
+        bot.reply_to(message, msg if len(msg) < 4000 else "List badi hai.")
 
-# 3. Message/Broadcast Handler (Prevention: If start comes here, ignore)
+# BROADCAST & FORWARDING
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
-def handler(message):
-    if message.text and message.text.startswith('/'): return # Start/Stats/List yahan ignore honge
-    
-    # Admin Reply
+def handle_all(message):
+    # Admin Reply Logic
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
-        if message.reply_to_message.forward_from:
-            bot.copy_message(message.reply_to_message.forward_from.id, message.chat.id, message.message_id)
-            return
+        bot.copy_message(message.reply_to_message.forward_from.id, message.chat.id, message.message_id)
+        return
 
-    # Broadcast
-    if message.from_user.id == ADMIN_ID:
-        users = users_col.find()
-        for u in users:
+    # Broadcast Logic
+    if message.from_user.id == ADMIN_ID and message.text not in ['/start', '/stats', '/list']:
+        for u in users_col.find():
             try:
                 caption = message.caption or ""
                 if message.content_type == 'photo': bot.send_photo(u['uid'], message.photo[-1].file_id, caption=caption, parse_mode='Markdown')
@@ -72,10 +72,10 @@ def handler(message):
         bot.reply_to(message, "✅ Broadcast Done!")
         return
 
-    # Forwarding
+    # User Forwarding
     if message.from_user.id != ADMIN_ID:
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
 
 if __name__ == '__main__':
     Thread(target=keep_alive).start()
-    bot.infinity_polling()
+    bot.infinity_polling(none_stop=True, interval=0)
