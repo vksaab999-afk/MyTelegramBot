@@ -49,19 +49,18 @@ def admin_commands(message):
     
     elif message.text == '/list':
         all_users = list(users_col.find())
-        msg = "User List:\n"
+        msg = "<b>User List:</b>\n"
         for u in all_users:
             uid = u['uid']
             uname = u.get('username')
-            # Link generation: Username hai toh uska link, nahi toh "Chat Link"
-            # Special chars hataye taaki link na tute
+            # HTML format: Sabhi clickable honge
             if uname and uname != "None" and uname != "N/A":
                 clean_uname = uname.replace('_', '').replace('*', '')
-                msg += f"[@{clean_uname}](tg://user?id={uid}) | {uid}\n"
+                msg += f'<a href="tg://user?id={uid}">@{clean_uname}</a> | {uid}\n'
             else:
-                msg += f"[Chat Link](tg://user?id={uid}) | {uid}\n"
+                msg += f'<a href="tg://user?id={uid}">Chat Link</a> | {uid}\n'
         
-        bot.reply_to(message, msg[:4000], parse_mode='Markdown')
+        bot.reply_to(message, msg[:4000], parse_mode='HTML')
 
 # MESSAGE HANDLER
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
