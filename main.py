@@ -50,17 +50,20 @@ def admin_commands(message):
         msg = "User List:\n"
         for u in all_users:
             uid = u['uid']
-            uname = u.get('username', 'None')
-            if uname == 'None':
-                msg += f"[Chat Link](tg://user?id={uid}) | {uid}\n"
+            uname = u.get('username')
+            # MarkdownV2 ke liye special characters escape kar rahe hain
+            if uname and uname != "None":
+                clean_uname = uname.replace('_', '\\_').replace('*', '\\*').replace('[', '\\[').replace(']', '\\]')
+                msg += f"[@{clean_uname}](tg://user?id={uid}) | {uid}\n"
             else:
-                msg += f"@{uname} | {uid}\n"
-        bot.reply_to(message, msg[:4000], parse_mode='Markdown')
+                msg += f"[Chat Link](tg://user?id={uid}) | {uid}\n"
+        
+        bot.reply_to(message, msg[:4000], parse_mode='MarkdownV2')
 
 # MESSAGE HANDLER
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def handle_all(message):
-    # 1. ADMIN REPLY (Jab kisi message ko reply karo)
+    # 1. ADMIN REPLY
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         target_id = None
         if message.reply_to_message.forward_from:
@@ -74,8 +77,8 @@ def handle_all(message):
             bot.copy_message(target_id, message.chat.id, message.message_id)
             return 
 
-    # 2. BROADCAST (Sirf tab jab Admin bina reply ke message bheje aur wo command na ho)
-    elif message.from_user.id == ADMIN_ID and not message.text.startswith('/'):
+    # 2. BROADCAST
+    elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
                 if message.content_type == 'photo': bot.send_photo(u['uid'], message.photo[-1].file_id, caption=message.caption)
