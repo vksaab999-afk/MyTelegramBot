@@ -21,6 +21,7 @@ app = Flask(__name__)
 def home(): return "Bot is Alive!"
 def keep_alive(): app.run(host='0.0.0.0', port=8080)
 
+# START COMMAND
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
@@ -29,45 +30,52 @@ def start(message):
     
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("✅ JOIN CHANNEL", url=CHANNEL_LINK))
+    caption = "🎉 *Welcome!*\n\n👇 Niche diye gaye button par click karke hamara channel join karein."
     try:
-        bot.send_photo(message.chat.id, WELCOME_PHOTO, caption="Welcome!", reply_markup=markup)
+        bot.send_photo(message.chat.id, WELCOME_PHOTO, caption=caption, reply_markup=markup, parse_mode='Markdown')
     except:
-        bot.send_message(message.chat.id, "Welcome!", reply_markup=markup)
+        bot.send_message(message.chat.id, caption, reply_markup=markup, parse_mode='Markdown')
 
-@bot.message_handler(commands=['list'])
-def list_users(message):
+# ADMIN COMMANDS
+@bot.message_handler(commands=['stats', 'list'])
+def admin_commands(message):
     if message.from_user.id != ADMIN_ID: return
-    all_users = list(users_col.find())
-    msg = "User List:\n"
-    for u in all_users:
-        uid = u['uid']
-        uname = u.get('username', 'None')
-        if uname == 'None':
-            msg += f"[Chat Link](tg://user?id={uid}) | {uid}\n"
-        else:
-            msg += f"@{uname} | {uid}\n"
-    bot.reply_to(message, msg[:4000], parse_mode='Markdown')
+    
+    if message.text == '/stats':
+        count = users_col.count_documents({})
+        bot.reply_to(message, f"📊 Total Users: {count}")
+    
+    elif message.text == '/list':
+        all_users = list(users_col.find())
+        msg = "User List:\n"
+        for u in all_users:
+            uid = u['uid']
+            uname = u.get('username', 'None')
+            if uname == 'None':
+                msg += f"[Chat Link](tg://user?id={uid}) | {uid}\n"
+            else:
+                msg += f"@{uname} | {uid}\n"
+        bot.reply_to(message, msg[:4000], parse_mode='Markdown')
 
+# MESSAGE HANDLER
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def handle_all(message):
-    # Agar admin ne reply kiya hai
+    # 1. ADMIN REPLY (Jab kisi message ko reply karo)
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         target_id = None
-        # Pehle forward_from check karega
         if message.reply_to_message.forward_from:
             target_id = message.reply_to_message.forward_from.id
         else:
-            # Agar forward nahi hai, toh message text se ID nikalega
             try:
                 target_id = int(message.reply_to_message.text.split('|')[-1].strip())
             except: pass
         
         if target_id:
             bot.copy_message(target_id, message.chat.id, message.message_id)
-            return # Yahan function ruk jayega, broadcast nahi hoga
+            return 
 
-    # Agar Admin ka normal message hai (Broadcast)
-    elif message.from_user.id == ADMIN_ID:
+    # 2. BROADCAST (Sirf tab jab Admin bina reply ke message bheje aur wo command na ho)
+    elif message.from_user.id == ADMIN_ID and not message.text.startswith('/'):
         for u in users_col.find():
             try:
                 if message.content_type == 'photo': bot.send_photo(u['uid'], message.photo[-1].file_id, caption=message.caption)
@@ -78,8 +86,8 @@ def handle_all(message):
         bot.reply_to(message, "✅ Broadcast Done!")
         return
 
-    # User ka message
-    if message.from_user.id != ADMIN_ID:
+    # 3. USER FORWARD
+    elif message.from_user.id != ADMIN_ID:
         bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
 
 if __name__ == '__main__':
