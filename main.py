@@ -54,7 +54,8 @@ def admin_commands(message):
             uid = u['uid']
             uname = u.get('username')
             # Link generation: Username hai toh uska link, nahi toh "Chat Link"
-            if uname and uname != "None":
+            # Special chars hataye taaki link na tute
+            if uname and uname != "None" and uname != "N/A":
                 clean_uname = uname.replace('_', '').replace('*', '')
                 msg += f"[@{clean_uname}](tg://user?id={uid}) | {uid}\n"
             else:
@@ -65,7 +66,7 @@ def admin_commands(message):
 # MESSAGE HANDLER
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def handle_all(message):
-    # 1. ADMIN REPLY (Jab kisi message ko reply karo)
+    # 1. ADMIN REPLY
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         target_id = None
         if message.reply_to_message.forward_from:
@@ -79,7 +80,7 @@ def handle_all(message):
             bot.copy_message(target_id, message.chat.id, message.message_id)
             return 
 
-    # 2. BROADCAST (Sirf tab jab Admin bina reply ke message bheje aur wo command na ho)
+    # 2. BROADCAST
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
