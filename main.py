@@ -11,7 +11,6 @@ BOT_TOKEN = os.environ.get('BOT_TOKEN')
 MONGO_URI = os.environ.get('MONGO_URI')
 ADMIN_ID = 5785924075 
 CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
-# Aapki GitHub wali poster ki direct link
 WELCOME_PHOTO = "https://raw.githubusercontent.com/vksaab999-afk/MyTelegramBot/main/poster.png"
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
@@ -19,37 +18,30 @@ client = MongoClient(MONGO_URI)
 db = client['tg_bot_database']
 users_col = db['users']
 
-# Force clear all connections before starting
 try:
     bot.remove_webhook()
     time.sleep(1)
 except: pass
 
-# Keep Alive (Bot ko jagaye rakhne ke liye)
 app = Flask(__name__)
 @app.route('/')
 def home(): return "Bot is Alive!"
 def keep_alive(): app.run(host='0.0.0.0', port=8080)
 
-# START COMMAND
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
     if not users_col.find_one({'uid': uid}):
-        users_col.insert_one({'uid': uid, 'username': message.from_user.username or "N/A"})
+        users_col.insert_one({'uid': uid, 'username': message.from_user.username or "None"})
     
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("✅ JOIN CHANNEL", url=CHANNEL_LINK))
-    
     caption = "🎉 *Welcome!*\n\n👇 Niche diye gaye button par click karke hamara channel join karein."
-    
     try:
         bot.send_photo(message.chat.id, WELCOME_PHOTO, caption=caption, reply_markup=markup, parse_mode='Markdown')
-    except Exception as e:
-        print(f"Photo error: {e}")
+    except:
         bot.send_message(message.chat.id, caption, reply_markup=markup, parse_mode='Markdown')
 
-# ADMIN COMMANDS
 @bot.message_handler(commands=['stats', 'list'])
 def admin_commands(message):
     if message.from_user.id != ADMIN_ID: return
@@ -58,21 +50,40 @@ def admin_commands(message):
         bot.reply_to(message, f"📊 Total Users: {count}")
     elif message.text == '/list':
         all_users = list(users_col.find())
-        msg = "User List:\n" + "\n".join([f"@{u.get('username','N/A')} | {u['uid']}" for u in all_users])
-        bot.reply_to(message, msg if len(msg) < 4000 else "List badi hai.")
+        msg = "User List:\n"
+        for u in all_users:
+            uid = u['uid']
+            uname = u.get('username', 'None')
+            if uname == 'None':
+                msg += f"[Chat Link](tg://user?id={uid}) | {uid}\n"
+            else:
+                msg += f"@{uname} | {uid}\n"
+        bot.reply_to(message, msg[:4000])
 
-# BROADCAST & FORWARDING
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def handle_all(message):
     if message.text and message.text.startswith('/'): return
     
-    # Admin Reply
+    # ADMIN REPLY LOGIC (Fixed)
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
+        # User ID extract karna (forward_from se ya reply ke message se)
+        target_id = None
         if message.reply_to_message.forward_from:
-            bot.copy_message(message.reply_to_message.forward_from.id, message.chat.id, message.message_id)
+            target_id = message.reply_to_message.forward_from.id
+        else:
+            # Agar forward nahi hai, toh message ke text/caption se ID nikalne ki koshish
+            try:
+                # Agar aapne reply me kisi ko user ID bheji hai, ye wo handle karega
+                target_id = int(message.reply_to_message.text.split('|')[-1].strip())
+            except:
+                pass
+        
+        if target_id:
+            bot.copy_message(target_id, message.chat.id, message.message_id)
+            bot.reply_to(message, "✅ Reply sent successfully!")
             return
 
-    # Broadcast
+    # BROADCAST LOGIC (Only if NOT a reply)
     if message.from_user.id == ADMIN_ID:
         for u in users_col.find():
             try:
@@ -91,5 +102,4 @@ def handle_all(message):
 
 if __name__ == '__main__':
     Thread(target=keep_alive).start()
-    # Final robust polling
     bot.infinity_polling(none_stop=True, skip_pending=True)
