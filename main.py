@@ -5,6 +5,7 @@ from pymongo import MongoClient
 from flask import Flask
 from threading import Thread
 
+# Configuration
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 MONGO_URI = os.environ.get('MONGO_URI')
 ADMIN_ID = 5785924075 
@@ -16,6 +17,7 @@ client = MongoClient(MONGO_URI)
 db = client['tg_bot_database']
 users_col = db['users']
 
+# Keep Alive Server
 app = Flask(__name__)
 @app.route('/')
 def home(): return "Bot is Alive!"
@@ -51,19 +53,19 @@ def admin_commands(message):
         for u in all_users:
             uid = u['uid']
             uname = u.get('username')
-            # MarkdownV2 ke liye special characters escape kar rahe hain
+            # Link generation: Username hai toh uska link, nahi toh "Chat Link"
             if uname and uname != "None":
-                clean_uname = uname.replace('_', '\\_').replace('*', '\\*').replace('[', '\\[').replace(']', '\\]')
+                clean_uname = uname.replace('_', '').replace('*', '')
                 msg += f"[@{clean_uname}](tg://user?id={uid}) | {uid}\n"
             else:
                 msg += f"[Chat Link](tg://user?id={uid}) | {uid}\n"
         
-        bot.reply_to(message, msg[:4000], parse_mode='MarkdownV2')
+        bot.reply_to(message, msg[:4000], parse_mode='Markdown')
 
 # MESSAGE HANDLER
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def handle_all(message):
-    # 1. ADMIN REPLY
+    # 1. ADMIN REPLY (Jab kisi message ko reply karo)
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         target_id = None
         if message.reply_to_message.forward_from:
@@ -77,7 +79,7 @@ def handle_all(message):
             bot.copy_message(target_id, message.chat.id, message.message_id)
             return 
 
-    # 2. BROADCAST
+    # 2. BROADCAST (Sirf tab jab Admin bina reply ke message bheje aur wo command na ho)
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
