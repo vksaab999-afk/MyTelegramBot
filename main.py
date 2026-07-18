@@ -1,5 +1,6 @@
 import os
 import telebot
+import re
 from telebot import types
 from pymongo import MongoClient
 from flask import Flask
@@ -63,10 +64,10 @@ def admin_commands(message):
 # MESSAGE HANDLER
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def handle_all(message):
-    # 1. ADMIN REPLY (Robust Logic: ID in the message itself)
+    # 1. ADMIN REPLY (Robust Logic)
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
-            # Message ke text se 🆔 nikalenge
+            # Message se 🆔 nikalenge
             target_id = int(message.reply_to_message.text.split('🆔')[1].strip())
             bot.copy_message(target_id, message.chat.id, message.message_id)
             bot.reply_to(message, "✅ Reply sent successfully!")
@@ -74,10 +75,12 @@ def handle_all(message):
             bot.reply_to(message, "❌ Reply nahi gaya. Kripya us message ko reply karein jisme 🆔 dikh rahi hai.")
         return
 
-    # 2. BROADCAST
+    # 2. BROADCAST (Robust Bold Logic)
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         raw_text = (message.text or message.caption or "")
-        formatted_text = raw_text.replace('*', '<b>', 1).replace('*', '</b>', 1) # Simple bolding
+        # Regex se sabhi *...* ko bold karega
+        formatted_text = re.sub(r'\*(.*?)\*', r'<b>\1</b>', raw_text)
+        
         for u in users_col.find():
             try:
                 if message.content_type == 'photo': bot.send_photo(u['uid'], message.photo[-1].file_id, caption=formatted_text, parse_mode='HTML')
@@ -88,10 +91,9 @@ def handle_all(message):
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
-    # 3. USER MESSAGE (Forwarding with ID in the same message)
+    # 3. USER MESSAGE (Forwarding with ID)
     elif message.from_user.id != ADMIN_ID:
         user_text = message.text or message.caption or ""
-        # Ab message aur ID ek saath bhejega
         full_msg = f"{user_text}\n\n👤 <b>User:</b> {message.from_user.first_name}\n🆔 <code>{message.from_user.id}</code>"
         bot.send_message(ADMIN_ID, full_msg, parse_mode='HTML')
 
