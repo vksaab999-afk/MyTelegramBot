@@ -52,18 +52,16 @@ def admin_commands(message):
         msg = "<b>User List:</b>\n"
         for u in all_users:
             uid = u['uid']
-            uname = u.get('username')
-            clean_uname = str(uname).replace('_', '').replace('*', '')
-            msg += f'<a href="tg://user?id={uid}">{clean_uname or "Chat"}</a> | <code>{uid}</code>\n'
+            uname = u.get('username', 'Chat')
+            clean_uname = str(uname).replace('<', '').replace('>', '')
+            msg += f'<a href="tg://user?id={uid}">{clean_uname}</a> | <code>{uid}</code>\n'
         bot.reply_to(message, msg[:4000], parse_mode='HTML')
 
-# BOLD FORMATTING FUNCTION (Isse aapka *text* bold ho jayega)
-def format_text(text):
-    # Regex ke bina simple logic: har * pair ko <b>...</b> se replace karega
-    parts = text.split('*')
-    for i in range(1, len(parts), 2):
-        parts[i] = f"<b>{parts[i]}</b>"
-    return "".join(parts)
+# Formatting function for Bold
+def get_bold(text):
+    # Sirf *text* ko <b>text</b> mein badlega
+    import re
+    return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text)
 
 # MESSAGE HANDLER
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
@@ -72,10 +70,8 @@ def handle_all(message):
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
             target_id = int(message.reply_to_message.text.split('🆔')[1].strip())
-            # Reply mein bhi formatting chalu rakhi hai
-            formatted = format_text(message.text or message.caption or "")
             bot.copy_message(target_id, message.chat.id, message.message_id)
-            bot.reply_to(message, "✅ <b>Reply sent!</b>", parse_mode='HTML')
+            bot.reply_to(message, "✅ <b>Reply Sent!</b>", parse_mode='HTML')
         except:
             bot.reply_to(message, "❌ <b>Error:</b> ID nahi mili.", parse_mode='HTML')
         return
@@ -83,13 +79,13 @@ def handle_all(message):
     # 2. BROADCAST
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         raw_text = (message.text or message.caption or "")
-        formatted_text = format_text(raw_text) # Yahan formatting apply hogi
+        formatted = get_bold(raw_text)
         for u in users_col.find():
             try:
-                if message.content_type == 'photo': bot.send_photo(u['uid'], message.photo[-1].file_id, caption=formatted_text, parse_mode='HTML')
-                elif message.content_type == 'video': bot.send_video(u['uid'], message.video.file_id, caption=formatted_text, parse_mode='HTML')
-                elif message.content_type == 'document': bot.send_document(u['uid'], message.document.file_id, caption=formatted_text, parse_mode='HTML')
-                else: bot.send_message(u['uid'], formatted_text, parse_mode='HTML')
+                if message.content_type == 'photo': bot.send_photo(u['uid'], message.photo[-1].file_id, caption=formatted, parse_mode='HTML')
+                elif message.content_type == 'video': bot.send_video(u['uid'], message.video.file_id, caption=formatted, parse_mode='HTML')
+                elif message.content_type == 'document': bot.send_document(u['uid'], message.document.file_id, caption=formatted, parse_mode='HTML')
+                else: bot.send_message(u['uid'], formatted, parse_mode='HTML')
             except: continue
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
