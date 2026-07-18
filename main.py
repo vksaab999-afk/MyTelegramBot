@@ -1,5 +1,6 @@
 import os
 import telebot
+import re
 from telebot import types
 from pymongo import MongoClient
 from flask import Flask
@@ -17,7 +18,7 @@ client = MongoClient(MONGO_URI)
 db = client['tg_bot_database']
 users_col = db['users']
 
-# Keep Alive Server
+# Keep Alive
 app = Flask(__name__)
 @app.route('/')
 def home(): return "Bot is Alive!"
@@ -42,25 +43,21 @@ def start(message):
 @bot.message_handler(commands=['stats', 'list'])
 def admin_commands(message):
     if message.from_user.id != ADMIN_ID: return
-    
     if message.text == '/stats':
         count = users_col.count_documents({})
         bot.reply_to(message, f"📊 <b>Total Users:</b> {count}", parse_mode='HTML')
-    
     elif message.text == '/list':
         all_users = list(users_col.find())
         msg = "<b>User List:</b>\n"
         for u in all_users:
             uid = u['uid']
-            uname = u.get('username', 'Chat')
-            clean_uname = str(uname).replace('<', '').replace('>', '')
-            msg += f'<a href="tg://user?id={uid}">{clean_uname}</a> | <code>{uid}</code>\n'
+            uname = str(u.get('username', 'Chat')).replace('<', '').replace('>', '').replace('&', '')
+            msg += f'<a href="tg://user?id={uid}">{uname}</a> | <code>{uid}</code>\n'
         bot.reply_to(message, msg[:4000], parse_mode='HTML')
 
-# Formatting function for Bold
-def get_bold(text):
-    # Sirf *text* ko <b>text</b> mein badlega
-    import re
+# BROADCAST FORMATTER
+def apply_bold(text):
+    # Yeh Regex har *...* ko <b>...</b> mein badal dega
     return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text)
 
 # MESSAGE HANDLER
@@ -70,7 +67,12 @@ def handle_all(message):
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
             target_id = int(message.reply_to_message.text.split('🆔')[1].strip())
-            bot.copy_message(target_id, message.chat.id, message.message_id)
+            # Reply mein bhi bold ka support
+            msg_text = apply_bold(message.text or message.caption or "")
+            if message.content_type == 'text':
+                bot.send_message(target_id, msg_text, parse_mode='HTML')
+            else:
+                bot.copy_message(target_id, message.chat.id, message.message_id)
             bot.reply_to(message, "✅ <b>Reply Sent!</b>", parse_mode='HTML')
         except:
             bot.reply_to(message, "❌ <b>Error:</b> ID nahi mili.", parse_mode='HTML')
@@ -79,7 +81,7 @@ def handle_all(message):
     # 2. BROADCAST
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         raw_text = (message.text or message.caption or "")
-        formatted = get_bold(raw_text)
+        formatted = apply_bold(raw_text)
         for u in users_col.find():
             try:
                 if message.content_type == 'photo': bot.send_photo(u['uid'], message.photo[-1].file_id, caption=formatted, parse_mode='HTML')
