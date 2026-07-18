@@ -63,31 +63,21 @@ def admin_commands(message):
 # MESSAGE HANDLER
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
 def handle_all(message):
-    # 1. ADMIN REPLY
+    # 1. ADMIN REPLY (Robust Logic: ID in the message itself)
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
-        target_id = None
-        if message.reply_to_message.forward_from:
-            target_id = message.reply_to_message.forward_from.id
-        else:
-            try: target_id = int(message.reply_to_message.text.split('|')[-1].strip())
-            except: pass
-        if target_id:
+        try:
+            # Message ke text se 🆔 nikalenge
+            target_id = int(message.reply_to_message.text.split('🆔')[1].strip())
             bot.copy_message(target_id, message.chat.id, message.message_id)
-            return 
+            bot.reply_to(message, "✅ Reply sent successfully!")
+        except Exception as e:
+            bot.reply_to(message, "❌ Reply nahi gaya. Kripya us message ko reply karein jisme 🆔 dikh rahi hai.")
+        return
 
-    # 2. BROADCAST (Logic Fixed)
+    # 2. BROADCAST
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         raw_text = (message.text or message.caption or "")
-        # Naya robust logic: '*' ko '<b>' aur '</b>' mein badalna
-        formatted_text = ""
-        bold = True
-        for char in raw_text:
-            if char == '*':
-                formatted_text += "</b>" if not bold else "<b>"
-                bold = not bold
-            else:
-                formatted_text += char
-        
+        formatted_text = raw_text.replace('*', '<b>', 1).replace('*', '</b>', 1) # Simple bolding
         for u in users_col.find():
             try:
                 if message.content_type == 'photo': bot.send_photo(u['uid'], message.photo[-1].file_id, caption=formatted_text, parse_mode='HTML')
@@ -98,9 +88,12 @@ def handle_all(message):
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
-    # 3. USER FORWARD
+    # 3. USER MESSAGE (Forwarding with ID in the same message)
     elif message.from_user.id != ADMIN_ID:
-        bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
+        user_text = message.text or message.caption or ""
+        # Ab message aur ID ek saath bhejega
+        full_msg = f"{user_text}\n\n👤 <b>User:</b> {message.from_user.first_name}\n🆔 <code>{message.from_user.id}</code>"
+        bot.send_message(ADMIN_ID, full_msg, parse_mode='HTML')
 
 if __name__ == '__main__':
     Thread(target=keep_alive).start()
