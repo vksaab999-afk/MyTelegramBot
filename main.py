@@ -57,12 +57,12 @@ def admin_commands(message):
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice'])
 def handle_all(message):
-    # 1. ADMIN REPLY (Voice/Media fix)
+    # 1. ADMIN REPLY - FIXED ID EXTRACTION
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
-            # Sirf text message jisme ID ho, usse target_id nikalenge
+            # Message se 🆔 ke baad wali ID extract karo
             reply_text = message.reply_to_message.text or message.reply_to_message.caption or ""
-            target_id = int(re.search(r'tg://user\?id=(\d+)', reply_text).group(1))
+            target_id = int(re.findall(r'🆔\s*(\d+)', reply_text)[-1])
             
             if message.content_type == 'text':
                 bot.send_message(target_id, apply_bold(message.text), parse_mode='HTML')
@@ -70,7 +70,7 @@ def handle_all(message):
                 bot.copy_message(target_id, message.chat.id, message.message_id)
             bot.reply_to(message, "✅ <b>Sent Successfully!</b>", parse_mode='HTML')
         except Exception as e:
-            bot.reply_to(message, f"❌ <b>Error:</b> {e}", parse_mode='HTML')
+            bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili. {e}", parse_mode='HTML')
         return
 
     # 2. BROADCAST
