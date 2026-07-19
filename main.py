@@ -23,6 +23,7 @@ app = Flask(__name__)
 def home(): return "Bot is Alive!"
 def keep_alive(): app.run(host='0.0.0.0', port=8080)
 
+# Bold Formatting Helper
 def apply_bold(text):
     return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text or "")
 
@@ -57,12 +58,13 @@ def admin_commands(message):
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice'])
 def handle_all(message):
-    # 1. ADMIN REPLY
+    # 1. ADMIN REPLY (Media + Text Bold)
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
             reply_text = message.reply_to_message.text or message.reply_to_message.caption or ""
             target_id = int(re.findall(r'🆔\s*(\d+)', reply_text)[-1])
             
+            # Text hai toh Bold format karo
             if message.content_type == 'text':
                 bot.send_message(target_id, apply_bold(message.text), parse_mode='HTML')
             else:
@@ -72,7 +74,7 @@ def handle_all(message):
             bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili. {e}", parse_mode='HTML')
         return
 
-    # 2. BROADCAST
+    # 2. BROADCAST (Text Bold + Media Support)
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
@@ -84,16 +86,17 @@ def handle_all(message):
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
-    # 3. USER MESSAGE (FIXED: Ab Text aur Media dono mein User Info jayegi)
+    # 3. USER MESSAGE (Text Bold + Info Attached)
     elif message.from_user.id != ADMIN_ID:
         user_name = message.from_user.first_name
         info_text = f"\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>"
         
         if message.content_type == 'text':
-            bot.send_message(ADMIN_ID, f"{message.text}{info_text}", parse_mode='HTML')
+            # Text mein Bold format apply kiya
+            bot.send_message(ADMIN_ID, apply_bold(message.text) + info_text, parse_mode='HTML')
         else:
             bot.copy_message(ADMIN_ID, message.chat.id, message.message_id, 
-                             caption=f"{message.caption or ''}{info_text}", 
+                             caption=f"{apply_bold(message.caption or '')}{info_text}", 
                              parse_mode='HTML')
 
 if __name__ == '__main__':
