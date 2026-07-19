@@ -18,17 +18,15 @@ client = MongoClient(MONGO_URI)
 db = client['tg_bot_database']
 users_col = db['users']
 
-# Keep Alive Server
+# Keep Alive
 app = Flask(__name__)
 @app.route('/')
 def home(): return "Bot is Alive!"
 def keep_alive(): app.run(host='0.0.0.0', port=8080)
 
-# BROADCAST/REPLY FORMATTER (Bold Logic)
 def apply_bold(text):
-    return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text)
+    return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text or "")
 
-# START COMMAND
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
@@ -37,22 +35,18 @@ def start(message):
     
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("✅ JOIN CHANNEL", url=CHANNEL_LINK))
-    # Yahan maine wahi caption rakha hai jo aapke start mein tha
     caption = "🎉 <b>Welcome!</b>\n\n👇 Niche diye gaye button par click karke hamara channel join karein."
     try:
         bot.send_photo(message.chat.id, WELCOME_PHOTO, caption=caption, reply_markup=markup, parse_mode='HTML')
     except:
         bot.send_message(message.chat.id, caption, reply_markup=markup, parse_mode='HTML')
 
-# ADMIN COMMANDS
 @bot.message_handler(commands=['stats', 'list'])
 def admin_commands(message):
     if message.from_user.id != ADMIN_ID: return
-    
     if message.text == '/stats':
         count = users_col.count_documents({})
         bot.reply_to(message, f"📊 <b>Total Users:</b> {count}", parse_mode='HTML')
-    
     elif message.text == '/list':
         all_users = list(users_col.find())
         msg = "<b>User List:</b>\n"
@@ -62,43 +56,39 @@ def admin_commands(message):
             msg += f'<a href="tg://user?id={uid}">{uname}</a> | <code>{uid}</code>\n'
         bot.reply_to(message, msg[:4000], parse_mode='HTML')
 
-# MESSAGE HANDLER
-@bot.message_handler(content_types=['photo', 'video', 'document', 'text'])
+@bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice'])
 def handle_all(message):
-    # 1. ADMIN REPLY (Clickable ID & Bold Logic)
+    # 1. ADMIN REPLY
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
-            target_id = int(re.search(r'(\d+)', message.reply_to_message.text.split('🆔')[-1]).group(1))
-            formatted_text = apply_bold(message.text or message.caption or "")
+            target_id = int(re.search(r'tg://user\?id=(\d+)', message.reply_to_message.text).group(1))
             if message.content_type == 'text':
-                bot.send_message(target_id, formatted_text, parse_mode='HTML')
+                bot.send_message(target_id, apply_bold(message.text), parse_mode='HTML')
             else:
-                bot.copy_message(target_id, message.chat.id, message.message_id)
+                bot.copy_message(target_id, message.chat.id, message.message_id, caption=apply_bold(message.caption or ""))
             bot.reply_to(message, "✅ <b>Reply Sent!</b>", parse_mode='HTML')
         except:
-            bot.reply_to(message, "❌ <b>Error:</b> ID nahi mili.", parse_mode='HTML')
+            bot.reply_to(message, "❌ <b>Error:</b> Reply failed.", parse_mode='HTML')
         return
 
-    # 2. BROADCAST (Bold Logic Enabled)
+    # 2. BROADCAST
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
-        raw_text = (message.text or message.caption or "")
-        formatted_text = apply_bold(raw_text)
+        formatted = apply_bold(message.text or message.caption or "")
         for u in users_col.find():
             try:
-                if message.content_type == 'photo': bot.send_photo(u['uid'], message.photo[-1].file_id, caption=formatted_text, parse_mode='HTML')
-                elif message.content_type == 'video': bot.send_video(u['uid'], message.video.file_id, caption=formatted_text, parse_mode='HTML')
-                elif message.content_type == 'document': bot.send_document(u['uid'], message.document.file_id, caption=formatted_text, parse_mode='HTML')
-                else: bot.send_message(u['uid'], formatted_text, parse_mode='HTML')
+                if message.content_type == 'text': bot.send_message(u['uid'], formatted, parse_mode='HTML')
+                else: bot.copy_message(u['uid'], message.chat.id, message.message_id, caption=formatted, parse_mode='HTML')
             except: continue
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
-    # 3. USER MESSAGE (Clickable Name)
+    # 3. USER MESSAGE (Media + Text Forwarding)
     elif message.from_user.id != ADMIN_ID:
-        user_text = message.text or message.caption or ""
         user_name = message.from_user.first_name
-        full_msg = f"{user_text}\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>"
-        bot.send_message(ADMIN_ID, full_msg, parse_mode='HTML')
+        # Media ko forward karne ke liye copy_message use kiya
+        bot.copy_message(ADMIN_ID, message.chat.id, message.message_id, 
+                         caption=f"{message.caption or ''}\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>", 
+                         parse_mode='HTML')
 
 if __name__ == '__main__':
     Thread(target=keep_alive).start()
