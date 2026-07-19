@@ -18,7 +18,6 @@ client = MongoClient(MONGO_URI)
 db = client['tg_bot_database']
 users_col = db['users']
 
-# Keep Alive
 app = Flask(__name__)
 @app.route('/')
 def home(): return "Bot is Alive!"
@@ -58,34 +57,34 @@ def admin_commands(message):
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice'])
 def handle_all(message):
-    # 1. ADMIN REPLY
+    # 1. ADMIN REPLY (Media + Voice Support)
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
             target_id = int(re.search(r'tg://user\?id=(\d+)', message.reply_to_message.text).group(1))
             if message.content_type == 'text':
                 bot.send_message(target_id, apply_bold(message.text), parse_mode='HTML')
             else:
-                bot.copy_message(target_id, message.chat.id, message.message_id, caption=apply_bold(message.caption or ""))
-            bot.reply_to(message, "✅ <b>Reply Sent!</b>", parse_mode='HTML')
-        except:
-            bot.reply_to(message, "❌ <b>Error:</b> Reply failed.", parse_mode='HTML')
+                bot.copy_message(target_id, message.chat.id, message.message_id)
+            bot.reply_to(message, "✅ <b>Sent Successfully!</b>", parse_mode='HTML')
+        except Exception as e:
+            bot.reply_to(message, f"❌ <b>Error:</b> {e}", parse_mode='HTML')
         return
 
-    # 2. BROADCAST
+    # 2. BROADCAST (Media + Voice Support)
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
-        formatted = apply_bold(message.text or message.caption or "")
         for u in users_col.find():
             try:
-                if message.content_type == 'text': bot.send_message(u['uid'], formatted, parse_mode='HTML')
-                else: bot.copy_message(u['uid'], message.chat.id, message.message_id, caption=formatted, parse_mode='HTML')
+                if message.content_type == 'text':
+                    bot.send_message(u['uid'], apply_bold(message.text), parse_mode='HTML')
+                else:
+                    bot.copy_message(u['uid'], message.chat.id, message.message_id)
             except: continue
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
-    # 3. USER MESSAGE (Media + Text Forwarding)
+    # 3. USER MESSAGE (Forwarding everything)
     elif message.from_user.id != ADMIN_ID:
         user_name = message.from_user.first_name
-        # Media ko forward karne ke liye copy_message use kiya
         bot.copy_message(ADMIN_ID, message.chat.id, message.message_id, 
                          caption=f"{message.caption or ''}\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>", 
                          parse_mode='HTML')
