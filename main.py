@@ -57,10 +57,13 @@ def admin_commands(message):
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice'])
 def handle_all(message):
-    # 1. ADMIN REPLY (Media + Voice Support)
+    # 1. ADMIN REPLY (Voice/Media fix)
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
-            target_id = int(re.search(r'tg://user\?id=(\d+)', message.reply_to_message.text).group(1))
+            # Sirf text message jisme ID ho, usse target_id nikalenge
+            reply_text = message.reply_to_message.text or message.reply_to_message.caption or ""
+            target_id = int(re.search(r'tg://user\?id=(\d+)', reply_text).group(1))
+            
             if message.content_type == 'text':
                 bot.send_message(target_id, apply_bold(message.text), parse_mode='HTML')
             else:
@@ -70,7 +73,7 @@ def handle_all(message):
             bot.reply_to(message, f"❌ <b>Error:</b> {e}", parse_mode='HTML')
         return
 
-    # 2. BROADCAST (Media + Voice Support)
+    # 2. BROADCAST
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
@@ -82,7 +85,7 @@ def handle_all(message):
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
-    # 3. USER MESSAGE (Forwarding everything)
+    # 3. USER MESSAGE
     elif message.from_user.id != ADMIN_ID:
         user_name = message.from_user.first_name
         bot.copy_message(ADMIN_ID, message.chat.id, message.message_id, 
