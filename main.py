@@ -57,10 +57,9 @@ def admin_commands(message):
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice'])
 def handle_all(message):
-    # 1. ADMIN REPLY - FIXED ID EXTRACTION
+    # 1. ADMIN REPLY
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
-            # Message se 🆔 ke baad wali ID extract karo
             reply_text = message.reply_to_message.text or message.reply_to_message.caption or ""
             target_id = int(re.findall(r'🆔\s*(\d+)', reply_text)[-1])
             
@@ -85,12 +84,17 @@ def handle_all(message):
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
-    # 3. USER MESSAGE
+    # 3. USER MESSAGE (FIXED: Ab Text aur Media dono mein User Info jayegi)
     elif message.from_user.id != ADMIN_ID:
         user_name = message.from_user.first_name
-        bot.copy_message(ADMIN_ID, message.chat.id, message.message_id, 
-                         caption=f"{message.caption or ''}\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>", 
-                         parse_mode='HTML')
+        info_text = f"\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>"
+        
+        if message.content_type == 'text':
+            bot.send_message(ADMIN_ID, f"{message.text}{info_text}", parse_mode='HTML')
+        else:
+            bot.copy_message(ADMIN_ID, message.chat.id, message.message_id, 
+                             caption=f"{message.caption or ''}{info_text}", 
+                             parse_mode='HTML')
 
 if __name__ == '__main__':
     Thread(target=keep_alive).start()
