@@ -4,7 +4,8 @@ import re
 from telebot import types
 from pymongo import MongoClient
 from flask import Flask
-from threading import Thread, Timer
+from threading import Thread
+import time
 
 # Configuration
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
@@ -16,23 +17,24 @@ WELCOME_PHOTO = "https://raw.githubusercontent.com/vksaab999-afk/MyTelegramBot/m
 # --- AUTOMATED SEQUENCE CONFIGURATION ---
 AUTO_VIDEO_FILE_ID = "BAACAgUAAxkBAAIlVGpdwzUe17oqsG-BwxtFIq7s0oFNAAKVJwACOWPwVuuLmLHXLWmiPQQ" 
 
-# Optimized & Shortened Caption (Telegram limit ke andar taaki video ke sath 100% jaye)
-AUTO_VIDEO_CAPTION = """*First Deposit Bonus + Special Gift Code from My Side! ✨🫶🏻*
+AUTO_VIDEO_CAPTION = """*Game ki traf se Frist deposit bonus to milege hi milega uska sath Jitna bada deposit utna bada profit or gift code meri traf se bhi milega ✨🫶🏻*
 
-*1k Deposit ➔ ₹50 Bonus* 
-*2.5k Deposit ➔ ₹150 Bonus* 
-*5k Deposit ➔ ₹350 Bonus* 
-*13k Deposit ➔ ₹800 Bonus* 
-*30k Deposit ➔ ₹1500 Bonus* 
+*1k Deposit ₹50 Bonus* 
+*2.5k Deposit ₹150 Bonus* 
+*5k Deposit ₹350 Bonus* 
+*13k Deposit ₹800 Bonus* 
+*30k Deposit ₹1500 Bonus* 
 
-*⚠️ Deposit ke baad Gift Code ke liye mujhe message karo: @teamrajajii_bot*
-*Note: Request tabhi accept hogi jab ID official link se bani ho! 💫*
+*Gift code lena ke liye deposit ke baad mujhe msg kro @teamrajajii_bot 👀*
 
-*⏰ Prediction Timetable:*
-*• 10:00 AM ✅*
-*• 12:00 PM ✅*
-*• 06:00 PM ✅*
-*• 09:00 PM ✅*"""
+*Channel me request tabhi accept hogi jab aapki I'd hamare official link se bani huyi hogi 🫶🏻💫*
+
+*Prediction Timetable 💞*
+
+*10:00AM ✅*
+*12:00PM ✅*
+*06 :00PM ✅*
+*09:00PM ✅*"""
 
 REGISTRATION_LINK = "https://bdgking.vip//#/register?invitationCode=8235121574870"
 FOLLOWUP_MESSAGE = "👋 Hello bhai! Kya aapko koi help chahiye ya koi doubt hai? Aap mujhe yhi message karke pooch sakte ho."
@@ -51,31 +53,24 @@ def keep_alive(): app.run(host='0.0.0.0', port=8080)
 def apply_bold(text):
     return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text or "")
 
+# Bulletproof background worker jo server par kabhi drop nahi hoga
 def send_automated_sequence(chat_id):
-    try:
-        def send_video_step():
-            try:
-                formatted_caption = apply_bold(AUTO_VIDEO_CAPTION)
-                
-                markup = types.InlineKeyboardMarkup()
-                markup.add(types.InlineKeyboardButton("🔗 Registration Link", url=REGISTRATION_LINK))
-                
-                # Ab ye video ke sath hi caption aur button bhejega bina kisi error ke
-                bot.send_video(chat_id, AUTO_VIDEO_FILE_ID, caption=formatted_caption, reply_markup=markup, parse_mode='HTML')
-            except Exception as e:
-                print(f"Video Send Error: {e}")
+    def worker():
+        try:
+            # 30 Seconds ka wait
+            time.sleep(30.0)
+            formatted_caption = apply_bold(AUTO_VIDEO_CAPTION)
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("🔗 Registration Link", url=REGISTRATION_LINK))
+            bot.send_video(chat_id, AUTO_VIDEO_FILE_ID, caption=formatted_caption, reply_markup=markup, parse_mode='HTML')
+            
+            # Agle 30 Seconds ka wait (Total 60 seconds)
+            time.sleep(30.0)
+            bot.send_message(chat_id, apply_bold(FOLLOWUP_MESSAGE), parse_mode='HTML')
+        except Exception as e:
+            print(f"Sequence Error: {e}")
 
-        def send_followup_step():
-            try:
-                bot.send_message(chat_id, apply_bold(FOLLOWUP_MESSAGE), parse_mode='HTML')
-            except Exception as e:
-                print(f"Followup Send Error: {e}")
-
-        Timer(30.0, send_video_step).start()
-        Timer(60.0, send_followup_step).start()
-        
-    except Exception as e:
-        print(f"Timer Error: {e}")
+    Thread(target=worker, daemon=True).start()
 
 @bot.message_handler(commands=['start'])
 def start(message):
