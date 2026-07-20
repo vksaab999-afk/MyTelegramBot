@@ -16,7 +16,6 @@ WELCOME_PHOTO = "https://raw.githubusercontent.com/vksaab999-afk/MyTelegramBot/m
 # --- AUTOMATED SEQUENCE CONFIGURATION ---
 AUTO_VIDEO_FILE_ID = "BAACAgUAAxkBAAIlVGpdwzUe17oqsG-BwxtFIq7s0oFNAAKVJwACOWPwVuuLmLHXLWmiPQQ" 
 
-# Poora caption yahan set hai (asterisks (*) ki wajah se ye automatic bold ho jayega)
 AUTO_VIDEO_CAPTION = """*Game ki traf se Frist deposit bonus to milege hi milega uska sath Jitna bada deposit utna bada profit or gift code meri traf se bhi milega ✨🫶🏻*
 
 *1k Deposit ₹50 Bonus* 
@@ -57,15 +56,17 @@ def send_automated_sequence(chat_id):
     try:
         def send_video_step():
             try:
-                formatted_caption = apply_bold(AUTO_VIDEO_CAPTION)
+                # 1. Pehle Video bheji (bina caption ke taaki error na aaye)
+                bot.send_video(chat_id, AUTO_VIDEO_FILE_ID)
                 
-                # Registration Link ka Inline Button banaya hai
+                # 2. Phir Button ke sath message bheja
                 markup = types.InlineKeyboardMarkup()
                 markup.add(types.InlineKeyboardButton("🔗 Registration Link", url=REGISTRATION_LINK))
                 
-                bot.send_video(chat_id, AUTO_VIDEO_FILE_ID, caption=formatted_caption, reply_markup=markup, parse_mode='HTML')
+                formatted_caption = apply_bold(AUTO_VIDEO_CAPTION)
+                bot.send_message(chat_id, formatted_caption, reply_markup=markup, parse_mode='HTML')
             except Exception as e:
-                print(f"Video Send Error: {e}")
+                print(f"Video/Text Send Error: {e}")
 
         def send_followup_step():
             try:
