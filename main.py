@@ -5,7 +5,6 @@ from telebot import types
 from pymongo import MongoClient
 from flask import Flask
 from threading import Thread
-import time
 
 # Configuration
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
@@ -53,31 +52,13 @@ def keep_alive(): app.run(host='0.0.0.0', port=8080)
 def apply_bold(text):
     return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text or "")
 
-# Bulletproof background worker jo server par kabhi drop nahi hoga
-def send_automated_sequence(chat_id):
-    def worker():
-        try:
-            # 30 Seconds ka wait
-            time.sleep(30.0)
-            formatted_caption = apply_bold(AUTO_VIDEO_CAPTION)
-            markup = types.InlineKeyboardMarkup()
-            markup.add(types.InlineKeyboardButton("🔗 Registration Link", url=REGISTRATION_LINK))
-            bot.send_video(chat_id, AUTO_VIDEO_FILE_ID, caption=formatted_caption, reply_markup=markup, parse_mode='HTML')
-            
-            # Agle 30 Seconds ka wait (Total 60 seconds)
-            time.sleep(30.0)
-            bot.send_message(chat_id, apply_bold(FOLLOWUP_MESSAGE), parse_mode='HTML')
-        except Exception as e:
-            print(f"Sequence Error: {e}")
-
-    Thread(target=worker, daemon=True).start()
-
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
     if not users_col.find_one({'uid': uid}):
         users_col.insert_one({'uid': uid, 'username': message.from_user.username or "None"})
     
+    # 1. Welcome Message with Channel Join Button
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("✅ JOIN CHANNEL", url=CHANNEL_LINK))
     caption = "🎉 <b>Welcome!</b>\n\n👇 Niche diye gaye button par click karke hamara channel join karein."
@@ -86,8 +67,21 @@ def start(message):
         bot.send_photo(message.chat.id, WELCOME_PHOTO, caption=caption, reply_markup=markup, parse_mode='HTML')
     except:
         bot.send_message(message.chat.id, caption, reply_markup=markup, parse_mode='HTML')
-        
-    send_automated_sequence(message.chat.id)
+    
+    # 2. Turant Video aur Registration Button bhejna (No timers)
+    try:
+        formatted_caption = apply_bold(AUTO_VIDEO_CAPTION)
+        vid_markup = types.InlineKeyboardMarkup()
+        vid_markup.add(types.InlineKeyboardButton("🔗 Registration Link", url=REGISTRATION_LINK))
+        bot.send_video(message.chat.id, AUTO_VIDEO_FILE_ID, caption=formatted_caption, reply_markup=vid_markup, parse_mode='HTML')
+    except Exception as e:
+        print(f"Video Error: {e}")
+
+    # 3. Turant Followup Message bhejna
+    try:
+        bot.send_message(message.chat.id, apply_bold(FOLLOWUP_MESSAGE), parse_mode='HTML')
+    except Exception as e:
+        print(f"Followup Error: {e}")
 
 @bot.message_handler(commands=['stats', 'list'])
 def admin_commands(message):
