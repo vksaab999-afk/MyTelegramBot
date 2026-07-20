@@ -15,16 +15,15 @@ CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
 WELCOME_PHOTO = "https://raw.githubusercontent.com/vksaab999-afk/MyTelegramBot/main/poster.png"
 
 # --- AUTOMATED SEQUENCE CONFIGURATION ---
-# Ab ye teri bilkul nayi aur asli file_id hai
 AUTO_VIDEO_FILE_ID = "BAACAgUAAxkBAAIPcmpd1d_ydbdiiJLHlTMsz-_3JeGxAAKVJwACOWPwVnfD5_F52X1mPQQ" 
 
 AUTO_VIDEO_CAPTION = """*Game ki traf se Frist deposit bonus to milege hi milega uska sath Jitna bada deposit utna bada profit or gift code meri traf se bhi milega ✨🫶🏻*
 
-*1k Deposit ₹50 Bonus* 
-*2.5k Deposit ₹150 Bonus* 
-*5k Deposit ₹350 Bonus* 
-*13k Deposit ₹800 Bonus* 
-*30k Deposit ₹1500 Bonus* 
+*1k Deposit ₹50 Bonus💸* 
+*2.5k Deposit ₹150 Bonus💸* 
+*5k Deposit ₹350 Bonus💸* 
+*13k Deposit ₹800 Bonus💸* 
+*30k Deposit ₹1500 Bonus💸* 
 
 *Gift code lena ke liye deposit ke baad mujhe msg kro @teamrajajii_bot 👀*
 
@@ -38,7 +37,7 @@ AUTO_VIDEO_CAPTION = """*Game ki traf se Frist deposit bonus to milege hi milega
 *09:00PM ✅*"""
 
 REGISTRATION_LINK = "https://bdgking.vip//#/register?invitationCode=8235121574870"
-FOLLOWUP_MESSAGE = "👋 Hello Dear! Kya aapko koi help chahiye ya koi doubt hai? Aap mujhe yhi message karke pooch sakte ho."
+FOLLOWUP_MESSAGE = "👋 Hello bhai! Kya aapko koi help chahiye ya koi doubt hai? Aap mujhe yhi message karke pooch sakte ho."
 # ----------------------------------------
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
@@ -58,14 +57,12 @@ def apply_bold(text):
 def send_automated_sequence(chat_id):
     def worker():
         try:
-            # 30 Seconds wait ke baad video + bold caption + registration button
             time.sleep(30.0)
             formatted_caption = apply_bold(AUTO_VIDEO_CAPTION)
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton("🔗 Registration Link", url=REGISTRATION_LINK))
             bot.send_video(chat_id, AUTO_VIDEO_FILE_ID, caption=formatted_caption, reply_markup=markup, parse_mode='HTML')
             
-            # Agle 30 Seconds wait ke baad (Total 60s) follow-up message
             time.sleep(30.0)
             bot.send_message(chat_id, apply_bold(FOLLOWUP_MESSAGE), parse_mode='HTML')
         except Exception as e:
@@ -107,7 +104,7 @@ def admin_commands(message):
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice'])
 def handle_all(message):
-    # 1. ADMIN REPLY (Media + Text Bold)
+    # 1. ADMIN REPLY (Media/Text Caption Bold Support)
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
             reply_text = message.reply_to_message.text or message.reply_to_message.caption or ""
@@ -116,20 +113,22 @@ def handle_all(message):
             if message.content_type == 'text':
                 bot.send_message(target_id, apply_bold(message.text), parse_mode='HTML')
             else:
-                bot.copy_message(target_id, message.chat.id, message.message_id)
+                formatted_caption = apply_bold(message.caption or "")
+                bot.copy_message(target_id, message.chat.id, message.message_id, caption=formatted_caption, parse_mode='HTML')
             bot.reply_to(message, "✅ <b>Sent Successfully!</b>", parse_mode='HTML')
         except Exception as e:
             bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili. {e}", parse_mode='HTML')
         return
 
-    # 2. BROADCAST (Text Bold + Media Support)
+    # 2. BROADCAST (Media/Text Caption Bold Support)
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
                 if message.content_type == 'text':
                     bot.send_message(u['uid'], apply_bold(message.text), parse_mode='HTML')
                 else:
-                    bot.copy_message(u['uid'], message.chat.id, message.message_id)
+                    formatted_caption = apply_bold(message.caption or "")
+                    bot.copy_message(u['uid'], message.chat.id, message.message_id, caption=formatted_caption, parse_mode='HTML')
             except: continue
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
