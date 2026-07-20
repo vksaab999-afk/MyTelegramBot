@@ -33,11 +33,11 @@ AUTO_VIDEO_CAPTION = """*Game ki traf se Frist deposit bonus to milege hi milega
 
 *10:00AM ✅*
 *12:00PM ✅*
-*06 :00PM ✅*
+*06:00PM ✅*
 *09:00PM ✅*"""
 
 REGISTRATION_LINK = "https://bdgking.vip//#/register?invitationCode=8235121574870"
-FOLLOWUP_MESSAGE = "👋 Hello bhai! Kya aapko koi help chahiye ya koi doubt hai? Aap mujhe yhi message karke pooch sakte ho."
+FOLLOWUP_MESSAGE = "👋 Hello Dear! Kya aapko koi help chahiye ya koi doubt hai? Aap mujhe yhi message karke pooch sakte ho."
 # ----------------------------------------
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
