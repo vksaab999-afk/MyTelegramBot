@@ -6,10 +6,12 @@ from pymongo import MongoClient
 from flask import Flask
 from threading import Thread
 import time
+import requests
 
 # Configuration
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 MONGO_URI = os.environ.get('MONGO_URI')
+RENDER_EXTERNAL_URL = os.environ.get('RENDER_EXTERNAL_URL', 'https://mytelegrambot-alwm.onrender.com')
 ADMIN_ID = 5785924075 
 CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
 WELCOME_PHOTO = "https://raw.githubusercontent.com/vksaab999-afk/MyTelegramBot/main/poster.png"
@@ -52,7 +54,18 @@ users_col = db['users']
 app = Flask(__name__)
 @app.route('/')
 def home(): return "Bot is Alive!"
-def keep_alive(): app.run(host='0.0.0.0', port=8080)
+
+def keep_alive(): 
+    app.run(host='0.0.0.0', port=8080)
+
+def self_ping_worker():
+    while True:
+        try:
+            if RENDER_EXTERNAL_URL:
+                requests.get(RENDER_EXTERNAL_URL)
+        except Exception as e:
+            print(f"Ping Error: {e}")
+        time.sleep(300)
 
 def apply_bold(text):
     return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text or "")
@@ -174,4 +187,5 @@ def handle_all(message):
 if __name__ == '__main__':
     set_bot_commands()
     Thread(target=keep_alive).start()
+    Thread(target=self_ping_worker, daemon=True).start()
     bot.infinity_polling()
