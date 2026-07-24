@@ -41,7 +41,7 @@ AUTO_VIDEO_CAPTION = """*Game ki traf se Frist deposit bonus to milege hi milega
 *09:00PM ✅*"""
 
 REGISTRATION_LINK = "https://bdgking.vip//#/register?invitationCode=8235121574870"
-FOLLOWUP_MESSAGE = "👋 Hello Dear! Kya aapko koi help chahiye ya koi doubt hai? Aap mujhe yhi message karke pooch sakte ho."
+FOLLOWUP_MESSAGE = "👋 Hello bhai! Kya aapko koi help chahiye ya koi doubt hai? Aap mujhe yhi message karke pooch sakte ho."
 # ----------------------------------------
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
@@ -57,7 +57,7 @@ def keep_alive(): app.run(host='0.0.0.0', port=8080)
 def apply_bold(text):
     return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text or "")
 
-# Sirf ye 3 menu commands set hongi
+# Menu commands setup
 def set_bot_commands():
     commands = [
         types.BotCommand("start", "Start the bot"),
@@ -131,7 +131,7 @@ def admin_commands(message):
             msg += f'<a href="tg://user?id={uid}">{uname}</a> | <code>{uid}</code>\n'
         bot.reply_to(message, msg[:4000], parse_mode='HTML')
 
-@bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice'])
+@bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice', 'sticker', 'animation'])
 def handle_all(message):
     # 1. ADMIN REPLY
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
@@ -141,6 +141,10 @@ def handle_all(message):
             
             if message.content_type == 'text':
                 bot.send_message(target_id, apply_bold(message.text), parse_mode='HTML')
+            elif message.content_type == 'sticker':
+                bot.send_sticker(target_id, message.sticker.file_id)
+            elif message.content_type == 'animation':
+                bot.send_animation(target_id, message.animation.file_id, caption=apply_bold(message.caption or ""), parse_mode='HTML')
             else:
                 formatted_caption = apply_bold(message.caption or "")
                 bot.copy_message(target_id, message.chat.id, message.message_id, caption=formatted_caption, parse_mode='HTML')
@@ -149,12 +153,16 @@ def handle_all(message):
             bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili. {e}", parse_mode='HTML')
         return
 
-    # 2. BROADCAST
+    # 2. BROADCAST (Ab stickers aur GIFs/Animations bhi support karega!)
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
                 if message.content_type == 'text':
                     bot.send_message(u['uid'], apply_bold(message.text), parse_mode='HTML')
+                elif message.content_type == 'sticker':
+                    bot.send_sticker(u['uid'], message.sticker.file_id)
+                elif message.content_type == 'animation':
+                    bot.send_animation(u['uid'], message.animation.file_id, caption=apply_bold(message.caption or ""), parse_mode='HTML')
                 else:
                     formatted_caption = apply_bold(message.caption or "")
                     bot.copy_message(u['uid'], message.chat.id, message.message_id, caption=formatted_caption, parse_mode='HTML')
@@ -162,19 +170,25 @@ def handle_all(message):
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
-    # 3. USER MESSAGE
+    # 3. USER MESSAGE (User agar sticker ya GIF bhejega toh admin ko bhi waisa hi dikhega)
     elif message.from_user.id != ADMIN_ID:
         user_name = message.from_user.first_name
         info_text = f"\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>"
         
         if message.content_type == 'text':
             bot.send_message(ADMIN_ID, apply_bold(message.text) + info_text, parse_mode='HTML')
+        elif message.content_type == 'sticker':
+            bot.send_sticker(ADMIN_ID, message.sticker.file_id)
+            bot.send_message(ADMIN_ID, info_text, parse_mode='HTML')
+        elif message.content_type == 'animation':
+            bot.send_animation(ADMIN_ID, message.animation.file_id, caption=f"{apply_bold(message.caption or '')}{info_text}", parse_mode='HTML')
         else:
             bot.copy_message(ADMIN_ID, message.chat.id, message.message_id, 
                              caption=f"{apply_bold(message.caption or '')}{info_text}", 
                              parse_mode='HTML')
 
 if __name__ == '__main__':
+end
     set_bot_commands()
     Thread(target=keep_alive).start()
     bot.infinity_polling()
