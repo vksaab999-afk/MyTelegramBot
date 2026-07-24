@@ -133,20 +133,19 @@ def admin_commands(message):
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice', 'sticker', 'animation'])
 def handle_all(message):
-    # 1. ADMIN REPLY (User ko reply karte waqt exact copy hoga)
+    # 1. ADMIN REPLY
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
             reply_text = message.reply_to_message.text or message.reply_to_message.caption or ""
             target_id = int(re.findall(r'🆔\s*(\d+)', reply_text)[-1])
             
-            # Seedha copy message use hoga taaki icons/formatting na bigde
             bot.copy_message(target_id, message.chat.id, message.message_id)
             bot.reply_to(message, "✅ <b>Sent Successfully!</b>", parse_mode='HTML')
         except Exception as e:
             bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili. {e}", parse_mode='HTML')
         return
 
-    # 2. BROADCAST (Sabhi users ko bina kisi restriction ke exact copy jayega)
+    # 2. BROADCAST
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
@@ -155,7 +154,7 @@ def handle_all(message):
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
-    # 3. USER MESSAGE (User ka message admin ke paas aayega)
+    # 3. USER MESSAGE
     elif message.from_user.id != ADMIN_ID:
         user_name = message.from_user.first_name
         info_text = f"\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>"
@@ -174,6 +173,5 @@ def handle_all(message):
 
 if __name__ == '__main__':
     set_bot_commands()
-    Thread(target=keep_alive).make_start = True # safe keepalive
     Thread(target=keep_alive).start()
     bot.infinity_polling()
