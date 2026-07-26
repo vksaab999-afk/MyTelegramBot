@@ -26,7 +26,7 @@ TARGET_MESSAGE_ID = 4713     # Video + Animated Caption wali Message ID
 VOICE_MESSAGE_ID = 5043      # Voice + Caption wali Message ID
 APK_FILE_ID = "BQACAgUAAxkBAAIS8Gpk6tqHTqMZS_V_Wa0_e81JpSRfAAIsHQACA70oV5DwAieuEWdCPQQ" # APK File ID
 
-# 👇 Yahan apna Registration Link daal de jiss par click karke user ID banayega
+# 👇 Registration Link
 REGISTRATION_LINK = "https://6club22.com/#/register?invitationCode=134575773989"
 # ----------------------------------------
 
@@ -63,7 +63,7 @@ def set_bot_commands():
     ]
     bot.set_my_commands(commands)
 
-# Sequence worker with 5s intervals and buttons for both Video & Voice
+# Sequence worker with 5s intervals, buttons & automatic pin feature
 def send_automated_sequence(chat_id):
     def worker():
         try:
@@ -73,12 +73,18 @@ def send_automated_sequence(chat_id):
             markup_video = types.InlineKeyboardMarkup()
             markup_video.add(types.InlineKeyboardButton("📥 Download VIP Hack", callback_data="download_apk"))
             
-            bot.copy_message(
+            sent_msg = bot.copy_message(
                 chat_id=chat_id,
                 from_chat_id=SOURCE_CHAT_ID,
                 message_id=TARGET_MESSAGE_ID,
                 reply_markup=markup_video
             )
+            
+            # 👇 Yahan video message automatic pin ho jayega user ki chat mein!
+            try:
+                bot.pin_chat_message(chat_id=chat_id, message_id=sent_msg.message_id)
+            except Exception as pin_err:
+                print(f"Pin Error: {pin_err}")
             
             # 2. Video ke 5 second baad voice message + registration link button
             time.sleep(5.0)
