@@ -23,9 +23,11 @@ ADD_BOT_SETUP_LINK = "https://t.me/+rQ8jUMlvyZozNmE1"
 # --- AUTOMATED SEQUENCE CONFIGURATION ---
 SOURCE_CHAT_ID = 5785924075  # Tera chat ID jahan se video copy hoga
 TARGET_MESSAGE_ID = 4713     # Video + Animated Caption wali Message ID
-APK_FILE_ID = "BQACAgUAAxkBAAIS8Gpk6tqHTqMZS_V_Wa0_e81JpSRfAAIsHQACA70oV5DwAieuEWdCPQQ" # APK File ID
 
-FOLLOWUP_MESSAGE = "👋 Hello bhai! Kya aapko koi help chahiye ya koi doubt hai? Aap mujhe yhi message karke pooch sakte ho."
+# Yahan apna direct download link / website link / APK direct link daal de
+DIRECT_DOWNLOAD_LINK = "https://6club22.com/#/register?invitationCode=134575773989" 
+
+FOLLOWUP_MESSAGE = "👋 Hello Dear aapne kahi bhi kitna hi loss kia ho sab bhul jaoge ek baar hack ko download karke play karke dekho maja na aaye to bolna or mere se personally session chaiye to deposit ke baad screenshot bhejo personally play karwa ke sara recover karwa dunga 💯%."
 # ----------------------------------------
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
@@ -61,15 +63,16 @@ def set_bot_commands():
     ]
     bot.set_my_commands(commands)
 
-# Bulletproof background sequence worker using copy_message + callback button for APK
+# Sequence worker with updated 10s intervals and direct button link
 def send_automated_sequence(chat_id):
     def worker():
         try:
-            time.sleep(30.0)
+            # 1. Pehla 10 second ka gap start hone ke baad
+            time.sleep(10.0)
             
-            # Button setup for Download VIP Hack (using callback to send APK file)
+            # Button setup with direct URL (jaise pehle tha, click karte hi direct download/page khulega)
             markup = types.InlineKeyboardMarkup()
-            markup.add(types.InlineKeyboardButton("📥 Download VIP Hack", callback_data="download_apk"))
+            markup.add(types.InlineKeyboardButton("📥 Download VIP Hack", url=DIRECT_DOWNLOAD_LINK))
             
             # Telegram copy_message preserves 100% video, premium formatting and animated icons
             bot.copy_message(
@@ -79,27 +82,13 @@ def send_automated_sequence(chat_id):
                 reply_markup=markup
             )
             
-            time.sleep(30.0)
+            # 2. Video bhejne ke baad agla 10 second ka gap follow-up message ke liye
+            time.sleep(10.0)
             bot.send_message(chat_id, apply_bold(FOLLOWUP_MESSAGE), parse_mode='HTML')
         except Exception as e:
             print(f"Sequence Error: {e}")
 
     Thread(target=worker, daemon=True).start()
-
-@bot.callback_query_handler(func=lambda call: call.data == "download_apk")
-def handle_apk_download(call):
-    try:
-        # User jab button dabayega, usko direct APK file bhej di jayegi
-        bot.send_document(
-            chat_id=call.message.chat.id,
-            document=APK_FILE_ID,
-            caption="📂 <b>Yeh lo aapka VIP Hack APK! Install karke use karein.</b> 🚀",
-            parse_mode='HTML'
-        )
-        bot.answer_callback_query(call.id, "✅ APK Download Started!")
-    except Exception as e:
-        bot.answer_callback_query(call.id, "❌ Kuch error aa gaya, dobara try karein.")
-        print(f"APK Send Error: {e}")
 
 @bot.message_handler(commands=['start'])
 def start(message):
