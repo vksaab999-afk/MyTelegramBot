@@ -63,11 +63,11 @@ def set_bot_commands():
     ]
     bot.set_my_commands(commands)
 
-# Sequence worker with 5s intervals, buttons & automatic pin feature
+# Sequence worker with 5s intervals and dual buttons for voice
 def send_automated_sequence(chat_id):
     def worker():
         try:
-            # 1. Start hone ke 5 second baad video message + download button
+            # 1. Start hone ke 5 second baad video message + download button + automatic pin
             time.sleep(5.0)
             
             markup_video = types.InlineKeyboardMarkup()
@@ -80,17 +80,17 @@ def send_automated_sequence(chat_id):
                 reply_markup=markup_video
             )
             
-            # 👇 Yahan video message automatic pin ho jayega user ki chat mein!
             try:
                 bot.pin_chat_message(chat_id=chat_id, message_id=sent_msg.message_id)
             except Exception as pin_err:
                 print(f"Pin Error: {pin_err}")
             
-            # 2. Video ke 5 second baad voice message + registration link button
+            # 2. Video ke 5 second baad voice message + 2 buttons (Registration Link & Join VIP Channel)
             time.sleep(5.0)
             
             markup_voice = types.InlineKeyboardMarkup()
             markup_voice.add(types.InlineKeyboardButton("📝 Registration Link", url=REGISTRATION_LINK))
+            markup_voice.add(types.InlineKeyboardButton("✅ Join VIP Channel", url=CHANNEL_LINK))
             
             bot.copy_message(
                 chat_id=chat_id,
