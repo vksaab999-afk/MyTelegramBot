@@ -16,7 +16,7 @@ ADMIN_ID = 5785924075
 CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
 WELCOME_PHOTO = "https://raw.githubusercontent.com/vksaab999-afk/MyTelegramBot/main/poster.png"
 
-# --- 3 MENU LINKS CONFIGURATION ---
+# --- MENU LINKS CONFIGURATION ---
 AGENT_CHANNEL_LINK = "https://t.me/+aO4PoFUq5gU4YmNl"
 ADD_BOT_SETUP_LINK = "https://t.me/+rQ8jUMlvyZozNmE1"
 
@@ -25,7 +25,7 @@ SOURCE_CHAT_ID = 5785924075  # Tera chat ID jahan se messages copy honge
 TARGET_MESSAGE_ID = 4713     # Video + Animated Caption wali Message ID
 VOICE_MESSAGE_ID = 5043      # Voice + Caption wali Message ID
 
-# 👇 Updated APK File ID & Name
+# 👇 APK File ID & Name
 APK_FILE_ID = "BQACAgUAAxkBAAIUiWpprNshwyvVGNZ6raSg8MWDoZ5QAALfHwACz_hQVxzmsJRNVjt-PQQ"
 APK_FILE_NAME = "𝐑𝐚𝐣𝐚_𝐣𝐢_𝐕𝐢𝐩_𝐇𝐚𝐜𝐤.apk"
 
@@ -57,12 +57,14 @@ def self_ping_worker():
 def apply_bold(text):
     return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text or "")
 
-# Menu commands setup
+# Menu commands setup (Total 5 Commands)
 def set_bot_commands():
     commands = [
         types.BotCommand("start", "Start the bot"),
         types.BotCommand("agent_channel", "Agent Channel"),
-        types.BotCommand("add_bot_setup", "Add & Bot Set-up")
+        types.BotCommand("add_bot_setup", "Add & Bot Set-up"),
+        types.BotCommand("registration_link", "Registration Link"),
+        types.BotCommand("download_vip_hack", "Download VIP Hack")
     ]
     bot.set_my_commands(commands)
 
@@ -151,6 +153,18 @@ def add_bot_setup_handler(message):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🔗 Open Add & Bot Set-up", url=ADD_BOT_SETUP_LINK))
     bot.reply_to(message, "⚙️ <b>Add & Bot Set-up ki jankari ke liye button par click karein:</b>", reply_markup=markup, parse_mode='HTML')
+
+@bot.message_handler(commands=['registration_link'])
+def registration_link_handler(message):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📝 Click to Register", url=REGISTRATION_LINK))
+    bot.reply_to(message, "🔗 <b>Registration ke liye niche diye gaye button par click karein:</b>", reply_markup=markup, parse_mode='HTML')
+
+@bot.message_handler(commands=['download_vip_hack'])
+def download_vip_hack_handler(message):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📥 Download VIP Hack", callback_data="download_apk"))
+    bot.reply_to(message, "🚀 <b>VIP Hack download karne ke liye niche button par click karein:</b>", reply_markup=markup, parse_mode='HTML')
 
 # --------------------
 
