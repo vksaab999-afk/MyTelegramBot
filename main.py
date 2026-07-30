@@ -16,19 +16,17 @@ ADMIN_ID = 5785924075
 CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
 WELCOME_PHOTO = "https://raw.githubusercontent.com/vksaab999-afk/MyTelegramBot/main/poster.png"
 
-# --- 3 MENU LINKS CONFIGURATION ---
+# --- MENU LINKS CONFIGURATION ---
 AGENT_CHANNEL_LINK = "https://t.me/+aO4PoFUq5gU4YmNl"
 ADD_BOT_SETUP_LINK = "https://t.me/+rQ8jUMlvyZozNmE1"
 
 # --- AUTOMATED SEQUENCE CONFIGURATION ---
-SOURCE_CHAT_ID = 5785924075  # Tera chat ID jahan se messages copy honge
-TARGET_MESSAGE_ID = 4713     # Video + Animated Caption wali Message ID
-VOICE_MESSAGE_ID = 5043      # Voice + Caption wali Message ID
-APK_FILE_ID = "BQACAgUAAxkBAAIUiWpprNshwyvVGNZ6raSg8MWDoZ5QAALfHwACz_hQVxzmsJRNVjt-PQQ" # APK File ID
+SOURCE_CHAT_ID = 5785924075  
+TARGET_MESSAGE_ID = 4713     
+VOICE_MESSAGE_ID = 5043      
+APK_FILE_ID = "BQACAgUAAxkBAAIUiWpprNshwyvVGNZ6raSg8MWDoZ5QAALfHwACz_hQVxzmsJRNVjt-PQQ" 
 
-# 👇 Registration Link
 REGISTRATION_LINK = "https://6club22.com/#/register?invitationCode=134575773989"
-# ----------------------------------------
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
 client = MongoClient(MONGO_URI)
@@ -54,10 +52,10 @@ def self_ping_worker():
 def apply_bold(text):
     if not text:
         return ""
-    # Markdown *text* ko HTML <b>text</b> mein convert karega
-    return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text)
+    # Markdown *text* ko HTML <b>text</b> mein convert karta hai aur special characters ko safe rakhta hai
+    escaped_text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    return re.sub(r'\*(.*?)\*', r'<b>\1</b>', escaped_text)
 
-# Menu commands setup (Total 5 Commands)
 def set_bot_commands():
     commands = [
         types.BotCommand("start", "Start the bot"),
@@ -68,7 +66,6 @@ def set_bot_commands():
     ]
     bot.set_my_commands(commands)
 
-# Sequence worker with 5s intervals and dual buttons for voice
 def send_automated_sequence(chat_id):
     def worker():
         try:
@@ -135,8 +132,6 @@ def start(message):
         
     send_automated_sequence(message.chat.id)
 
-# --- MENU HANDLERS ---
-
 @bot.message_handler(commands=['agent_channel'])
 def agent_channel_handler(message):
     markup = types.InlineKeyboardMarkup()
@@ -160,8 +155,6 @@ def download_vip_hack_handler(message):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("📥 Download VIP Hack", callback_data="download_apk"))
     bot.reply_to(message, "🚀 <b>VIP Hack download karne ke liye niche button par click karein:</b>", reply_markup=markup, parse_mode='HTML')
-
-# --------------------
 
 @bot.message_handler(commands=['stats', 'list'])
 def admin_commands(message):
@@ -198,7 +191,6 @@ def admin_commands(message):
         except Exception as e:
             bot.reply_to(message, f"❌ <b>Error in /list:</b> {e}", parse_mode='HTML')
 
-# Helper function to send media matching admin's exact input format with HTML parse mode
 def send_media_to_user(recipient_id, message):
     try:
         raw_caption = message.caption or message.text or ""
@@ -225,7 +217,6 @@ def send_media_to_user(recipient_id, message):
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice', 'sticker', 'animation'])
 def handle_all(message):
-    # 1. ADMIN REPLY TO A USER
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
             reply_text = message.reply_to_message.text or message.reply_to_message.caption or ""
@@ -237,7 +228,6 @@ def handle_all(message):
             bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili. {e}", parse_mode='HTML')
         return
 
-    # 2. BROADCAST BY ADMIN
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
@@ -246,7 +236,6 @@ def handle_all(message):
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
-    # 3. NORMAL USER MESSAGE TO ADMIN
     elif message.from_user.id != ADMIN_ID:
         user_name = message.from_user.first_name
         info_text = f"\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>"
