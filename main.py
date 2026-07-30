@@ -111,8 +111,12 @@ def handle_apk_download(call):
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.from_user.id
+    # Naye user ke liye default is_blocked False rakhenge
     if not users_col.find_one({'uid': uid}):
-        users_col.insert_one({'uid': uid, 'username': message.from_user.username or "None"})
+        users_col.insert_one({'uid': uid, 'username': message.from_user.username or "None", 'is_blocked': False})
+    else:
+        # Agar purana user dobara start kare toh uska block status wapas False kar do
+        users_col.update_one({'uid': uid}, {'$set': {'is_blocked': False}})
     
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("✅ JOIN CHANNEL", url=CHANNEL_LINK))
@@ -153,8 +157,21 @@ def download_vip_hack_handler(message):
 def admin_commands(message):
     if message.from_user.id != ADMIN_ID: return
     if message.text == '/stats':
-        count = users_col.count_documents({})
-        bot.reply_to(message, f"📊 <b>Total Users:</b> {count}", parse_mode='HTML')
+        try:
+            total_count = users_col.count_documents({})
+            blocked_count = users_col.count_documents({'is_blocked': True})
+            active_count = total_count - blocked_count
+            
+            stats_msg = (
+                f"📊 <b>Bot Statistics:</b>\n\n"
+                f"👥 <b>Total Users:</b> {total_count}\n"
+                f"✅ <b>Active Users:</b> {active_count}\n"
+                f"🚫 <b>Blocked Users:</b> {blocked_count}"
+            )
+            bot.reply_to(message, stats_msg, parse_mode='HTML')
+        except Exception as e:
+            bot.reply_to(message, f"❌ <b>Error in /stats:</b> {e}", parse_mode='HTML')
+            
     elif message.text == '/list':
         try:
             all_users = list(users_col.find())
@@ -173,7 +190,8 @@ def admin_commands(message):
                 else:
                     display_name = str(raw_uname).replace('<', '').replace('>', '')
                 
-                msg += f'<a href="tg://user?id={uid}">{display_name}</a> | <code>{uid}</code>\n'
+                status_icon = "🚫" if u.get('is_blocked', False) else "🟢"
+                msg += f'{status_icon} <a href="tg://user?id={uid}">{display_name}</a> | <code>{uid}</code>\n'
                 
                 if len(msg) > 3800:
                     bot.reply_to(message, msg, parse_mode='HTML')
@@ -183,17 +201,6 @@ def admin_commands(message):
                 bot.reply_to(message, msg[:4000], parse_mode='HTML')
         except Exception as e:
             bot.reply_to(message, f"❌ <b>Error in /list:</b> {e}", parse_mode='HTML')
-
-# Yeh function admin ke original message ko bina kisi chhed-chhad ke exact formatting aur animated icons ke sath user tak copy karega
-def broadcast_exact_message(recipient_id, message):
-    try:
-        bot.copy_message(
-            chat_id=recipient_id,
-            from_chat_id=message.chat.id,
-            message_id=message.message_id
-        )
-    except Exception as e:
-        print(f"Broadcast Copy Error: {e}")
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice', 'sticker', 'animation'])
 def handle_all(message):
@@ -208,37 +215,55 @@ def handle_all(message):
                 from_chat_id=message.chat.id,
                 message_id=message.message_id
             )
+            # Agar reply karte waqt block khula ho toh use active kar do
+            users_col.update_one({'uid': target_id}, {'$set': {'is_blocked': False}})
             bot.reply_to(message, "✅ <b>Sent Successfully!</b>", parse_mode='HTML')
         except Exception as e:
-            bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili. {e}", parse_mode='HTML')
+            bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili ya user ne block kar rakha hai. {e}", parse_mode='HTML')
         return
 
-    # 2. BROADCAST BY ADMIN (Exact copy to all users)
+    # 2. BROADCAST BY ADMIN (Exact copy with Block detection)
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
+        success_count = 0
+        blocked_found = 0
+        
         for u in users_col.find():
+            uid = u['uid']
             try:
                 bot.copy_message(
-                    chat_id=u['uid'],
+                    chat_id=uid,
                     from_chat_id=message.chat.id,
                     message_id=message.message_id
                 )
-            except: continue
-        bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
+                # Agar message chala gaya toh ensure karo is_blocked False ho
+                users_col.update_one({'uid': uid}, {'$set': {'is_blocked': False}})
+                success_count += 1
+            except Exception as e:
+                err_str = str(e).lower()
+                if "blocked" in err_str or "forbidden" in err_str or "deactivated" in err_str:
+                    users_col.update_one({'uid': uid}, {'$set': {'is_blocked': True}})
+                    blocked_found += 1
+                continue
+                
+        bot.reply_to(message, f"✅ <b>Broadcast Done!</b>\n📤 Sent: {success_count}\n🚫 Newly Detected Blocks: {blocked_found}", parse_mode='HTML')
         return
 
     # 3. NORMAL USER MESSAGE TO ADMIN
     elif message.from_user.id != ADMIN_ID:
+        uid = message.from_user.id
         user_name = message.from_user.first_name
-        info_text = f"\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>"
+        
+        # User agar message bhej raha hai toh matlab active hai
+        users_col.update_one({'uid': uid}, {'$set': {'is_blocked': False}}, upsert=True)
+        
+        info_text = f"\n\n👤 <b>User:</b> <a href='tg://user?id={uid}'>{user_name}</a>\n🆔 <code>{uid}</code>"
         
         try:
-            # User ke message ke sath admin ko user details bhejna
             sent_admin_msg = bot.copy_message(
                 chat_id=ADMIN_ID,
                 from_chat_id=message.chat.id,
                 message_id=message.message_id
             )
-            # Saath mein user info ka text bhejna
             bot.send_message(ADMIN_ID, info_text, parse_mode='HTML', reply_to_message_id=sent_admin_msg.message_id)
         except Exception as e:
             print(f"User to Admin Error: {e}")
