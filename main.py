@@ -52,7 +52,10 @@ def self_ping_worker():
         time.sleep(300)
 
 def apply_bold(text):
-    return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text or "")
+    if not text:
+        return ""
+    # Markdown *text* ko HTML <b>text</b> mein convert karega
+    return re.sub(r'\*(.*?)\*', r'<b>\1</b>', text)
 
 # Menu commands setup (Total 5 Commands)
 def set_bot_commands():
@@ -195,13 +198,11 @@ def admin_commands(message):
         except Exception as e:
             bot.reply_to(message, f"❌ <b>Error in /list:</b> {e}", parse_mode='HTML')
 
-# Helper function to send media matching admin's exact input format
+# Helper function to send media matching admin's exact input format with HTML parse mode
 def send_media_to_user(recipient_id, message):
     try:
-        # Agar admin ne entities (jaise bold/italic) use kiye hain toh unhe HTML mein convert karna
-        caption = message.caption or ""
-        # Agar text mein *text* format hai toh use bold kar do
-        formatted_caption = apply_bold(caption)
+        raw_caption = message.caption or message.text or ""
+        formatted_caption = apply_bold(raw_caption)
 
         if message.content_type == 'photo':
             bot.send_photo(recipient_id, message.photo[-1].file_id, caption=formatted_caption, parse_mode='HTML')
@@ -218,7 +219,7 @@ def send_media_to_user(recipient_id, message):
         elif message.content_type == 'sticker':
             bot.send_sticker(recipient_id, message.sticker.file_id)
         elif message.content_type == 'text':
-            bot.send_message(recipient_id, apply_bold(message.text), parse_mode='HTML')
+            bot.send_message(recipient_id, formatted_caption, parse_mode='HTML')
     except Exception as e:
         print(f"Send Media Error: {e}")
 
@@ -251,28 +252,25 @@ def handle_all(message):
         info_text = f"\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>"
         
         try:
+            raw_caption = message.caption or message.text or ""
+            formatted_caption = apply_bold(raw_caption) + info_text
+
             if message.content_type == 'text':
-                bot.send_message(ADMIN_ID, apply_bold(message.text) + info_text, parse_mode='HTML')
+                bot.send_message(ADMIN_ID, formatted_caption, parse_mode='HTML')
             elif message.content_type == 'sticker':
                 bot.send_sticker(ADMIN_ID, message.sticker.file_id)
                 bot.send_message(ADMIN_ID, info_text, parse_mode='HTML')
             elif message.content_type == 'animation':
-                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
                 bot.send_animation(ADMIN_ID, message.animation.file_id, caption=formatted_caption, parse_mode='HTML')
             elif message.content_type == 'photo':
-                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
                 bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=formatted_caption, parse_mode='HTML')
             elif message.content_type == 'video':
-                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
                 bot.send_video(ADMIN_ID, message.video.file_id, caption=formatted_caption, parse_mode='HTML')
             elif message.content_type == 'document':
-                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
                 bot.send_document(ADMIN_ID, message.document.file_id, caption=formatted_caption, parse_mode='HTML')
             elif message.content_type == 'audio':
-                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
                 bot.send_audio(ADMIN_ID, message.audio.file_id, caption=formatted_caption, parse_mode='HTML')
             elif message.content_type == 'voice':
-                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
                 bot.send_voice(ADMIN_ID, message.voice.file_id, caption=formatted_caption, parse_mode='HTML')
         except Exception as e:
             print(f"User to Admin Error: {e}")
