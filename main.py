@@ -69,9 +69,7 @@ def set_bot_commands():
 def send_automated_sequence(chat_id):
     def worker():
         try:
-            # 1. Start hone ke 5 second baad video message + download button + automatic pin
             time.sleep(5.0)
-            
             markup_video = types.InlineKeyboardMarkup()
             markup_video.add(types.InlineKeyboardButton("📥 Download VIP Hack", callback_data="download_apk"))
             
@@ -87,9 +85,7 @@ def send_automated_sequence(chat_id):
             except Exception as pin_err:
                 print(f"Pin Error: {pin_err}")
             
-            # 2. Video ke 5 second baad voice message + 2 buttons (Registration Link & Join VIP Channel)
             time.sleep(5.0)
-            
             markup_voice = types.InlineKeyboardMarkup()
             markup_voice.add(types.InlineKeyboardButton("📝 Registration Link", url=REGISTRATION_LINK))
             markup_voice.add(types.InlineKeyboardButton("✅ Join VIP Channel", url=CHANNEL_LINK))
@@ -100,7 +96,6 @@ def send_automated_sequence(chat_id):
                 message_id=VOICE_MESSAGE_ID,
                 reply_markup=markup_voice
             )
-            
         except Exception as e:
             print(f"Sequence Error: {e}")
 
@@ -182,9 +177,14 @@ def admin_commands(message):
             for u in all_users:
                 uid = u.get('uid')
                 if not uid: continue
-                # Username ho ya None, dono ko tg://user?id= link se clickable banaya hai
-                uname = str(u.get('username', 'None')).replace('<', '').replace('>', '')
-                msg += f'<a href="tg://user?id={uid}">{uname}</a> | <code>{uid}</code>\n'
+                
+                raw_uname = u.get('username', 'None')
+                if not raw_uname or raw_uname == "None":
+                    display_name = "Chat"
+                else:
+                    display_name = str(raw_uname).replace('<', '').replace('>', '')
+                
+                msg += f'<a href="tg://user?id={uid}">{display_name}</a> | <code>{uid}</code>\n'
                 
                 if len(msg) > 3800:
                     bot.reply_to(message, msg, parse_mode='HTML')
@@ -195,45 +195,87 @@ def admin_commands(message):
         except Exception as e:
             bot.reply_to(message, f"❌ <b>Error in /list:</b> {e}", parse_mode='HTML')
 
+# Helper function to send media matching admin's exact input format
+def send_media_to_user(recipient_id, message):
+    try:
+        # Agar admin ne entities (jaise bold/italic) use kiye hain toh unhe HTML mein convert karna
+        caption = message.caption or ""
+        # Agar text mein *text* format hai toh use bold kar do
+        formatted_caption = apply_bold(caption)
+
+        if message.content_type == 'photo':
+            bot.send_photo(recipient_id, message.photo[-1].file_id, caption=formatted_caption, parse_mode='HTML')
+        elif message.content_type == 'video':
+            bot.send_video(recipient_id, message.video.file_id, caption=formatted_caption, parse_mode='HTML')
+        elif message.content_type == 'document':
+            bot.send_document(recipient_id, message.document.file_id, caption=formatted_caption, parse_mode='HTML')
+        elif message.content_type == 'audio':
+            bot.send_audio(recipient_id, message.audio.file_id, caption=formatted_caption, parse_mode='HTML')
+        elif message.content_type == 'voice':
+            bot.send_voice(recipient_id, message.voice.file_id, caption=formatted_caption, parse_mode='HTML')
+        elif message.content_type == 'animation':
+            bot.send_animation(recipient_id, message.animation.file_id, caption=formatted_caption, parse_mode='HTML')
+        elif message.content_type == 'sticker':
+            bot.send_sticker(recipient_id, message.sticker.file_id)
+        elif message.content_type == 'text':
+            bot.send_message(recipient_id, apply_bold(message.text), parse_mode='HTML')
+    except Exception as e:
+        print(f"Send Media Error: {e}")
+
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice', 'sticker', 'animation'])
 def handle_all(message):
-    # 1. ADMIN REPLY
+    # 1. ADMIN REPLY TO A USER
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
             reply_text = message.reply_to_message.text or message.reply_to_message.caption or ""
             target_id = int(re.findall(r'🆔\s*(\d+)', reply_text)[-1])
             
-            bot.copy_message(target_id, message.chat.id, message.message_id)
+            send_media_to_user(target_id, message)
             bot.reply_to(message, "✅ <b>Sent Successfully!</b>", parse_mode='HTML')
         except Exception as e:
             bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili. {e}", parse_mode='HTML')
         return
 
-    # 2. BROADCAST
+    # 2. BROADCAST BY ADMIN
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
-                bot.copy_message(u['uid'], message.chat.id, message.message_id)
+                send_media_to_user(u['uid'], message)
             except: continue
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
-    # 3. USER MESSAGE
+    # 3. NORMAL USER MESSAGE TO ADMIN
     elif message.from_user.id != ADMIN_ID:
         user_name = message.from_user.first_name
         info_text = f"\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>"
         
-        if message.content_type == 'text':
-            bot.send_message(ADMIN_ID, apply_bold(message.text) + info_text, parse_mode='HTML')
-        elif message.content_type == 'sticker':
-            bot.send_sticker(ADMIN_ID, message.sticker.file_id)
-            bot.send_message(ADMIN_ID, info_text, parse_mode='HTML')
-        elif message.content_type == 'animation':
-            bot.send_animation(ADMIN_ID, message.animation.file_id, caption=f"{apply_bold(message.caption or '')}{info_text}", parse_mode='HTML')
-        else:
-            bot.copy_message(ADMIN_ID, message.chat.id, message.message_id, 
-                             caption=f"{apply_bold(message.caption or '')}{info_text}", 
-                             parse_mode='HTML')
+        try:
+            if message.content_type == 'text':
+                bot.send_message(ADMIN_ID, apply_bold(message.text) + info_text, parse_mode='HTML')
+            elif message.content_type == 'sticker':
+                bot.send_sticker(ADMIN_ID, message.sticker.file_id)
+                bot.send_message(ADMIN_ID, info_text, parse_mode='HTML')
+            elif message.content_type == 'animation':
+                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
+                bot.send_animation(ADMIN_ID, message.animation.file_id, caption=formatted_caption, parse_mode='HTML')
+            elif message.content_type == 'photo':
+                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
+                bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=formatted_caption, parse_mode='HTML')
+            elif message.content_type == 'video':
+                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
+                bot.send_video(ADMIN_ID, message.video.file_id, caption=formatted_caption, parse_mode='HTML')
+            elif message.content_type == 'document':
+                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
+                bot.send_document(ADMIN_ID, message.document.file_id, caption=formatted_caption, parse_mode='HTML')
+            elif message.content_type == 'audio':
+                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
+                bot.send_audio(ADMIN_ID, message.audio.file_id, caption=formatted_caption, parse_mode='HTML')
+            elif message.content_type == 'voice':
+                formatted_caption = f"{apply_bold(message.caption or '')}{info_text}"
+                bot.send_voice(ADMIN_ID, message.voice.file_id, caption=formatted_caption, parse_mode='HTML')
+        except Exception as e:
+            print(f"User to Admin Error: {e}")
 
 if __name__ == '__main__':
     set_bot_commands()
