@@ -49,13 +49,6 @@ def self_ping_worker():
             print(f"Ping Error: {e}")
         time.sleep(300)
 
-def apply_bold(text):
-    if not text:
-        return ""
-    # Markdown *text* ko HTML <b>text</b> mein convert karta hai aur special characters ko safe rakhta hai
-    escaped_text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-    return re.sub(r'\*(.*?)\*', r'<b>\1</b>', escaped_text)
-
 def set_bot_commands():
     commands = [
         types.BotCommand("start", "Start the bot"),
@@ -191,76 +184,62 @@ def admin_commands(message):
         except Exception as e:
             bot.reply_to(message, f"❌ <b>Error in /list:</b> {e}", parse_mode='HTML')
 
-def send_media_to_user(recipient_id, message):
+# Yeh function admin ke original message ko bina kisi chhed-chhad ke exact formatting aur animated icons ke sath user tak copy karega
+def broadcast_exact_message(recipient_id, message):
     try:
-        raw_caption = message.caption or message.text or ""
-        formatted_caption = apply_bold(raw_caption)
-
-        if message.content_type == 'photo':
-            bot.send_photo(recipient_id, message.photo[-1].file_id, caption=formatted_caption, parse_mode='HTML')
-        elif message.content_type == 'video':
-            bot.send_video(recipient_id, message.video.file_id, caption=formatted_caption, parse_mode='HTML')
-        elif message.content_type == 'document':
-            bot.send_document(recipient_id, message.document.file_id, caption=formatted_caption, parse_mode='HTML')
-        elif message.content_type == 'audio':
-            bot.send_audio(recipient_id, message.audio.file_id, caption=formatted_caption, parse_mode='HTML')
-        elif message.content_type == 'voice':
-            bot.send_voice(recipient_id, message.voice.file_id, caption=formatted_caption, parse_mode='HTML')
-        elif message.content_type == 'animation':
-            bot.send_animation(recipient_id, message.animation.file_id, caption=formatted_caption, parse_mode='HTML')
-        elif message.content_type == 'sticker':
-            bot.send_sticker(recipient_id, message.sticker.file_id)
-        elif message.content_type == 'text':
-            bot.send_message(recipient_id, formatted_caption, parse_mode='HTML')
+        bot.copy_message(
+            chat_id=recipient_id,
+            from_chat_id=message.chat.id,
+            message_id=message.message_id
+        )
     except Exception as e:
-        print(f"Send Media Error: {e}")
+        print(f"Broadcast Copy Error: {e}")
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice', 'sticker', 'animation'])
 def handle_all(message):
+    # 1. ADMIN REPLY TO A USER (Exact copy with all formatting & icons)
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
             reply_text = message.reply_to_message.text or message.reply_to_message.caption or ""
             target_id = int(re.findall(r'🆔\s*(\d+)', reply_text)[-1])
             
-            send_media_to_user(target_id, message)
+            bot.copy_message(
+                chat_id=target_id,
+                from_chat_id=message.chat.id,
+                message_id=message.message_id
+            )
             bot.reply_to(message, "✅ <b>Sent Successfully!</b>", parse_mode='HTML')
         except Exception as e:
             bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili. {e}", parse_mode='HTML')
         return
 
+    # 2. BROADCAST BY ADMIN (Exact copy to all users)
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
-                send_media_to_user(u['uid'], message)
+                bot.copy_message(
+                    chat_id=u['uid'],
+                    from_chat_id=message.chat.id,
+                    message_id=message.message_id
+                )
             except: continue
         bot.reply_to(message, "✅ <b>Broadcast Done!</b>", parse_mode='HTML')
         return
 
+    # 3. NORMAL USER MESSAGE TO ADMIN
     elif message.from_user.id != ADMIN_ID:
         user_name = message.from_user.first_name
         info_text = f"\n\n👤 <b>User:</b> <a href='tg://user?id={message.from_user.id}'>{user_name}</a>\n🆔 <code>{message.from_user.id}</code>"
         
         try:
-            raw_caption = message.caption or message.text or ""
-            formatted_caption = apply_bold(raw_caption) + info_text
-
-            if message.content_type == 'text':
-                bot.send_message(ADMIN_ID, formatted_caption, parse_mode='HTML')
-            elif message.content_type == 'sticker':
-                bot.send_sticker(ADMIN_ID, message.sticker.file_id)
-                bot.send_message(ADMIN_ID, info_text, parse_mode='HTML')
-            elif message.content_type == 'animation':
-                bot.send_animation(ADMIN_ID, message.animation.file_id, caption=formatted_caption, parse_mode='HTML')
-            elif message.content_type == 'photo':
-                bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=formatted_caption, parse_mode='HTML')
-            elif message.content_type == 'video':
-                bot.send_video(ADMIN_ID, message.video.file_id, caption=formatted_caption, parse_mode='HTML')
-            elif message.content_type == 'document':
-                bot.send_document(ADMIN_ID, message.document.file_id, caption=formatted_caption, parse_mode='HTML')
-            elif message.content_type == 'audio':
-                bot.send_audio(ADMIN_ID, message.audio.file_id, caption=formatted_caption, parse_mode='HTML')
-            elif message.content_type == 'voice':
-                bot.send_voice(ADMIN_ID, message.voice.file_id, caption=formatted_caption, parse_mode='HTML')
+            # User ke message ke sath admin ko user details bhejna
+            sent_admin_msg = bot.copy_message(
+                chat_id=ADMIN_ID,
+                from_chat_id=message.chat.id,
+                message_id=message.message_id
+            )
+            # Saath mein user info ka text bhejna
+            bot.send_message(ADMIN_ID, info_text, parse_mode='HTML', reply_to_message_id=sent_admin_msg.message_id)
         except Exception as e:
             print(f"User to Admin Error: {e}")
 
