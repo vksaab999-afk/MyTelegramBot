@@ -16,7 +16,7 @@ ADMIN_ID = 5785924075
 CHANNEL_LINK = "https://t.me/+lFOBnj9z7yVmMGM1"
 WELCOME_PHOTO = "https://raw.githubusercontent.com/vksaab999-afk/MyTelegramBot/main/poster.png"
 
-# --- MENU LINKS CONFIGURATION ---
+# --- 3 MENU LINKS CONFIGURATION ---
 AGENT_CHANNEL_LINK = "https://t.me/+aO4PoFUq5gU4YmNl"
 ADD_BOT_SETUP_LINK = "https://t.me/+rQ8jUMlvyZozNmE1"
 
@@ -24,10 +24,7 @@ ADD_BOT_SETUP_LINK = "https://t.me/+rQ8jUMlvyZozNmE1"
 SOURCE_CHAT_ID = 5785924075  # Tera chat ID jahan se messages copy honge
 TARGET_MESSAGE_ID = 4713     # Video + Animated Caption wali Message ID
 VOICE_MESSAGE_ID = 5043      # Voice + Caption wali Message ID
-
-# 👇 APK File ID & Name
-APK_FILE_ID = "BQACAgUAAxkBAAIUiWpprNshwyvVGNZ6raSg8MWDoZ5QAALfHwACz_hQVxzmsJRNVjt-PQQ"
-APK_FILE_NAME = "𝐑𝐚𝐣𝐚_𝐣𝐢_𝐕𝐢𝐩_𝐇𝐚𝐜𝐤.apk"
+APK_FILE_ID = "BQACAgUAAxkBAAIUiWpprNshwyvVGNZ6raSg8MWDoZ5QAALfHwACz_hQVxzmsJRNVjt-PQQ" # APK File ID
 
 # 👇 Registration Link
 REGISTRATION_LINK = "https://6club22.com/#/register?invitationCode=134575773989"
@@ -115,7 +112,7 @@ def handle_apk_download(call):
         bot.send_document(
             chat_id=call.message.chat.id,
             document=APK_FILE_ID,
-            caption=f"📂 <b>Yeh lo aapka VIP Hack APK! ({APK_FILE_NAME}) Install karke use karein.</b> 🚀",
+            caption="📂 <b>Yeh lo aapka VIP Hack APK! Install karke use karein.</b> 🚀",
             parse_mode='HTML'
         )
         bot.answer_callback_query(call.id, "✅ APK Download Started!")
@@ -185,7 +182,7 @@ def admin_commands(message):
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice', 'sticker', 'animation'])
 def handle_all(message):
-    # 1. ADMIN REPLY
+    # 1. ADMIN REPLY (Pure original copy_message logic)
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
             reply_text = message.reply_to_message.text or message.reply_to_message.caption or ""
@@ -197,7 +194,7 @@ def handle_all(message):
             bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili. {e}", parse_mode='HTML')
         return
 
-    # 2. BROADCAST
+    # 2. BROADCAST (Pure original copy_message logic)
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
