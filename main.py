@@ -172,17 +172,32 @@ def admin_commands(message):
         count = users_col.count_documents({})
         bot.reply_to(message, f"📊 <b>Total Users:</b> {count}", parse_mode='HTML')
     elif message.text == '/list':
-        all_users = list(users_col.find())
-        msg = "<b>User List:</b>\n"
-        for u in all_users:
-            uid = u['uid']
-            uname = str(u.get('username', 'Chat')).replace('<', '').replace('>', '')
-            msg += f'<a href="tg://user?id={uid}">{uname}</a> | <code>{uid}</code>\n'
-        bot.reply_to(message, msg[:4000], parse_mode='HTML')
+        try:
+            all_users = list(users_col.find())
+            if not all_users:
+                bot.reply_to(message, "⚠️ <b>Database mein koi user nahi mila.</b>", parse_mode='HTML')
+                return
+            
+            msg = "<b>User List:</b>\n"
+            for u in all_users:
+                uid = u.get('uid')
+                if not uid: continue
+                # Username ho ya None, dono ko tg://user?id= link se clickable banaya hai
+                uname = str(u.get('username', 'None')).replace('<', '').replace('>', '')
+                msg += f'<a href="tg://user?id={uid}">{uname}</a> | <code>{uid}</code>\n'
+                
+                if len(msg) > 3800:
+                    bot.reply_to(message, msg, parse_mode='HTML')
+                    msg = "<b>User List (continued):</b>\n"
+            
+            if msg:
+                bot.reply_to(message, msg[:4000], parse_mode='HTML')
+        except Exception as e:
+            bot.reply_to(message, f"❌ <b>Error in /list:</b> {e}", parse_mode='HTML')
 
 @bot.message_handler(content_types=['photo', 'video', 'document', 'text', 'audio', 'voice', 'sticker', 'animation'])
 def handle_all(message):
-    # 1. ADMIN REPLY (Pure original copy_message logic)
+    # 1. ADMIN REPLY
     if message.from_user.id == ADMIN_ID and message.reply_to_message:
         try:
             reply_text = message.reply_to_message.text or message.reply_to_message.caption or ""
@@ -194,7 +209,7 @@ def handle_all(message):
             bot.reply_to(message, f"❌ <b>Error:</b> ID nahi mili. {e}", parse_mode='HTML')
         return
 
-    # 2. BROADCAST (Pure original copy_message logic)
+    # 2. BROADCAST
     elif message.from_user.id == ADMIN_ID and not (message.text and message.text.startswith('/')):
         for u in users_col.find():
             try:
